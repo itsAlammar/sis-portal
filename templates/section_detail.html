@@ -12,7 +12,7 @@
       <select name="student_id" required>{% for s in eligible_students %}<option value="{{ s.student_id }}">{{ s.student_number }} — {{ s.display_name(locale) }}</option>{% endfor %}</select>
       <div class="actions-row"><button class="btn--primary">{{ t('action.enroll') }}</button></div>
     </form>
-    <p class="muted">{{ t('common.male') if section.gender=='male' else t('common.female') }} · same-gender students only.</p>
+    <p class="muted">{{ t('reg.same_gender') }}</p>
     {% else %}<p class="muted">—</p>{% endif %}
   </div>
   <div class="card">
