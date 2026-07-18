@@ -1,26 +1,21 @@
 {% extends "layout.html" %}
-{% block title %}Add Course{% endblock %}
+{% block title %}{{ t('nav.courses') }}{% endblock %}
 {% block content %}
-<div class="page-eyebrow">Course Catalog</div>
-<div class="page-header"><h1>Add course</h1></div>
-<div class="card" style="max-width: 560px;">
-  <form method="post">
+<div class="page-header"><h1>{{ t('action.add') }} — {{ t('nav.courses') }}</h1></div>
+<div class="card" style="max-width:560px;">
+<form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="field-row">
-      <div><label>Course code</label><input type="text" name="course_code" placeholder="e.g. CS101" required></div>
-      <div><label>Credit hours</label><input type="number" name="credit_hours" value="3" required></div>
-    </div>
-    <label>Title</label><input type="text" name="title" required>
-    <label>Description</label><textarea name="description" rows="3"></textarea>
-    <label>Department</label>
-    <select name="department_id">
-      <option value="">—</option>
-      {% for d in departments %}<option value="{{ d.department_id }}">{{ d.name }}</option>{% endfor %}
-    </select>
-    <div class="actions-row">
-      <button type="submit" class="btn--primary">Add course</button>
-      <a class="btn btn--ghost" href="{{ url_for('courses_list') }}">Cancel</a>
-    </div>
-  </form>
+  <div class="grid-2">
+    <div><label>{{ t('course.code') }}</label><input name="course_code" required></div>
+    <div><label>{{ t('course.credits') }}</label><input type="number" name="credit_hours" min="1" required></div>
+  </div>
+  <label>{{ t('course.title') }} (EN)</label><input name="title" required>
+  <label>{{ t('course.title') }} (AR)</label><input name="title_ar" dir="rtl">
+  <div class="grid-2">
+    <div><label>{{ t('course.price') }} (SAR)</label><input type="number" name="price" min="0" step="0.01" value="0"></div>
+    <div><label>{{ t('student.major') }}</label><select name="major_id"><option value="">—</option>{% for m in majors %}<option value="{{ m.major_id }}">{{ m.name(locale) }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
+</form>
 </div>
 {% endblock %}

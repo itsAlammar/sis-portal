@@ -1,10 +1,10 @@
-"""Business logic for managing courses and their prerequisites."""
+"""Business logic for managing courses, prerequisites, and instructors."""
 
 import sqlite3
 from typing import List, Optional
 
 from exceptions import DuplicateError, NotFoundError, ValidationError
-from models import Course
+from models import Course, Teacher
 
 
 class CourseService:
@@ -13,19 +13,23 @@ class CourseService:
 
     def add_course(
         self, course_code: str, title: str, credit_hours: int,
-        department_id: Optional[int] = None, description: str = "",
+        title_ar: str = "", price: float = 0, department_id: Optional[int] = None,
+        major_id: Optional[int] = None, description: str = "",
     ) -> Course:
         if not course_code.strip() or not title.strip():
             raise ValidationError("Course code and title are required.")
         if credit_hours <= 0:
             raise ValidationError("Credit hours must be a positive number.")
+        if price < 0:
+            raise ValidationError("Price cannot be negative.")
         try:
             cur = self.conn.execute(
                 """INSERT INTO courses
-                   (course_code, title, credit_hours, department_id, description, status)
-                   VALUES (?, ?, ?, ?, ?, 'active')""",
-                (course_code.strip().upper(), title.strip(), credit_hours,
-                 department_id, description),
+                   (course_code, title, title_ar, credit_hours, price, department_id,
+                    major_id, description, status)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')""",
+                (course_code.strip().upper(), title.strip(), title_ar.strip() or None,
+                 credit_hours, price, department_id, major_id, description),
             )
         except sqlite3.IntegrityError as e:
             raise DuplicateError(f"Course code '{course_code}' already exists.") from e
@@ -49,32 +53,27 @@ class CourseService:
         return Course.from_row(row)
 
     def list_courses(
-        self, department_id: Optional[int] = None,
+        self, department_id: Optional[int] = None, major_id: Optional[int] = None,
         limit: Optional[int] = None, offset: int = 0,
     ) -> List[Course]:
-        query = "SELECT * FROM courses"
-        params: list = []
+        clauses, params = [], []
         if department_id:
-            query += " WHERE department_id = ?"
-            params.append(department_id)
-        query += " ORDER BY course_code"
+            clauses.append("department_id = ?"); params.append(department_id)
+        if major_id:
+            clauses.append("major_id = ?"); params.append(major_id)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        query = f"SELECT * FROM courses {where} ORDER BY course_code"
         if limit is not None:
-            query += " LIMIT ? OFFSET ?"
-            params += [limit, offset]
+            query += " LIMIT ? OFFSET ?"; params += [limit, offset]
         return [Course.from_row(r) for r in self.conn.execute(query, params).fetchall()]
 
-    def count_courses(self, department_id: Optional[int] = None) -> int:
-        if department_id:
-            row = self.conn.execute(
-                "SELECT COUNT(*) AS c FROM courses WHERE department_id = ?", (department_id,)
-            ).fetchone()
-        else:
-            row = self.conn.execute("SELECT COUNT(*) AS c FROM courses").fetchone()
-        return row["c"]
+    def count_courses(self) -> int:
+        return self.conn.execute("SELECT COUNT(*) AS c FROM courses").fetchone()["c"]
 
     def update_course(self, course_id: int, **fields) -> Course:
         self.get_course(course_id)
-        allowed = {"title", "credit_hours", "department_id", "description", "status"}
+        allowed = {"title", "title_ar", "credit_hours", "price", "department_id",
+                   "major_id", "description", "status"}
         updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
         if not updates:
             return self.get_course(course_id)
@@ -86,77 +85,76 @@ class CourseService:
         self.conn.commit()
         return self.get_course(course_id)
 
-    # -- prerequisites ----------------------------------------------------
-    # Prerequisites are modeled as "groups": within a group, completing ANY
-    # ONE course satisfies it (OR). ALL groups must be satisfied (AND).
-    # A plain add_prerequisite() call creates its own single-course group,
-    # so simple "must complete X" requirements work exactly as before.
-    def add_prerequisite(
-        self, course_id: int, prerequisite_course_id: int, group_id: Optional[int] = None
-    ) -> None:
+    # -- instructors (many teachers per course) ---------------------------
+    def assign_teacher(self, course_id: int, teacher_id: int) -> None:
+        self.get_course(course_id)
+        try:
+            self.conn.execute(
+                "INSERT INTO course_teachers (course_id, teacher_id) VALUES (?, ?)",
+                (course_id, teacher_id),
+            )
+        except sqlite3.IntegrityError:
+            return  # already assigned -- idempotent
+        self.conn.commit()
+
+    def remove_teacher(self, course_id: int, teacher_id: int) -> None:
+        self.conn.execute(
+            "DELETE FROM course_teachers WHERE course_id = ? AND teacher_id = ?",
+            (course_id, teacher_id),
+        )
+        self.conn.commit()
+
+    def get_teachers(self, course_id: int) -> List[Teacher]:
+        rows = self.conn.execute(
+            """SELECT t.* FROM teachers t
+               JOIN course_teachers ct ON ct.teacher_id = t.teacher_id
+               WHERE ct.course_id = ? ORDER BY t.last_name, t.first_name""",
+            (course_id,),
+        ).fetchall()
+        return [Teacher.from_row(r) for r in rows]
+
+    # -- prerequisites (OR within a group, AND across groups) -------------
+    def add_prerequisite(self, course_id, prerequisite_course_id, group_id=None) -> None:
         if course_id == prerequisite_course_id:
             raise ValidationError("A course cannot be its own prerequisite.")
         self.get_course(course_id)
         self.get_course(prerequisite_course_id)
         if group_id is None:
-            row = self.conn.execute(
-                "SELECT COALESCE(MAX(group_id), 0) + 1 AS next FROM course_prerequisites "
-                "WHERE course_id = ?",
-                (course_id,),
-            ).fetchone()
-            group_id = row["next"]
+            group_id = self.conn.execute(
+                "SELECT COALESCE(MAX(group_id), 0) + 1 AS n FROM course_prerequisites "
+                "WHERE course_id = ?", (course_id,),
+            ).fetchone()["n"]
         try:
             self.conn.execute(
                 "INSERT INTO course_prerequisites (course_id, prerequisite_course_id, group_id) "
-                "VALUES (?, ?, ?)",
-                (course_id, prerequisite_course_id, group_id),
+                "VALUES (?, ?, ?)", (course_id, prerequisite_course_id, group_id),
             )
         except sqlite3.IntegrityError as e:
             raise DuplicateError("That prerequisite is already set.") from e
         self.conn.commit()
 
-    def add_prerequisite_group(self, course_id: int, prerequisite_course_ids: List[int]) -> None:
-        """Add a set of alternative courses where completing ANY ONE of
-        them satisfies the requirement (e.g. 'MATH101 or MATH105')."""
+    def add_prerequisite_group(self, course_id, prerequisite_course_ids) -> None:
         if len(prerequisite_course_ids) < 2:
             raise ValidationError("An alternative group needs at least two courses.")
-        row = self.conn.execute(
-            "SELECT COALESCE(MAX(group_id), 0) + 1 AS next FROM course_prerequisites "
-            "WHERE course_id = ?",
-            (course_id,),
-        ).fetchone()
-        group_id = row["next"]
-        for prereq_id in prerequisite_course_ids:
-            self.add_prerequisite(course_id, prereq_id, group_id=group_id)
+        group_id = self.conn.execute(
+            "SELECT COALESCE(MAX(group_id), 0) + 1 AS n FROM course_prerequisites "
+            "WHERE course_id = ?", (course_id,),
+        ).fetchone()["n"]
+        for pid in prerequisite_course_ids:
+            self.add_prerequisite(course_id, pid, group_id=group_id)
 
-    def remove_prerequisite(self, course_id: int, prerequisite_course_id: int) -> None:
+    def remove_prerequisite(self, course_id, prerequisite_course_id) -> None:
         self.conn.execute(
-            "DELETE FROM course_prerequisites "
-            "WHERE course_id = ? AND prerequisite_course_id = ?",
+            "DELETE FROM course_prerequisites WHERE course_id = ? AND prerequisite_course_id = ?",
             (course_id, prerequisite_course_id),
         )
         self.conn.commit()
 
-    def get_prerequisites(self, course_id: int) -> List[Course]:
-        """Flattened list of every prerequisite course, ignoring group
-        structure -- convenient for simple display."""
-        rows = self.conn.execute(
-            """SELECT c.* FROM courses c
-               JOIN course_prerequisites cp ON cp.prerequisite_course_id = c.course_id
-               WHERE cp.course_id = ?
-               ORDER BY cp.group_id, c.course_code""",
-            (course_id,),
-        ).fetchall()
-        return [Course.from_row(r) for r in rows]
-
-    def get_prerequisite_groups(self, course_id: int) -> List[List[Course]]:
-        """Structured view: a list of groups, each a list of alternative
-        courses (OR within a group, AND across groups)."""
+    def get_prerequisite_groups(self, course_id) -> List[List[Course]]:
         rows = self.conn.execute(
             """SELECT cp.group_id, c.* FROM courses c
                JOIN course_prerequisites cp ON cp.prerequisite_course_id = c.course_id
-               WHERE cp.course_id = ?
-               ORDER BY cp.group_id, c.course_code""",
+               WHERE cp.course_id = ? ORDER BY cp.group_id, c.course_code""",
             (course_id,),
         ).fetchall()
         groups = {}

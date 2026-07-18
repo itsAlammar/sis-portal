@@ -1,31 +1,13 @@
 {% extends "layout.html" %}
-{% block title %}My Sections{% endblock %}
+{% block title %}{{ t('nav.my_sections') }}{% endblock %}
 {% block content %}
-<div class="page-eyebrow">Teacher View</div>
-<div class="page-header">
-  <h1>My sections</h1>
-  <span class="stamp stamp--default">{{ teacher.employee_number }} — {{ teacher.full_name }}</span>
-</div>
-
+<div class="page-header"><h1>{{ t('nav.my_sections') }}</h1><span class="stamp stamp--default">{{ teacher.display_name(locale) }}</span></div>
 <div class="card">
   {% if sections %}
   <table>
-    <thead><tr><th>Course</th><th>Sec</th><th>Term</th><th>Schedule</th><th>Enrolled</th><th>Status</th></tr></thead>
-    <tbody>
-      {% for row in sections %}
-      <tr>
-        <td><a href="{{ url_for('teach_section', section_id=row.section.section_id) }}">{{ row.course_code }}</a> <span class="muted">{{ row.course_title }}</span></td>
-        <td>{{ row.section.section_number }}</td>
-        <td>{{ row.term_name }}</td>
-        <td>{{ row.section.days or '—' }} {{ row.section.start_time or '' }}{% if row.section.end_time %}–{{ row.section.end_time }}{% endif %}</td>
-        <td class="num">{{ row.enrolled }}/{{ row.section.capacity }}</td>
-        <td><span class="stamp stamp--{{ status_kind(row.section.status) }}">{{ row.section.status }}</span></td>
-      </tr>
-      {% endfor %}
-    </tbody>
+    <thead><tr><th>{{ t('course.code') }}</th><th>Sec</th><th>{{ t('nav.terms') }}</th><th class="num">Enrolled</th></tr></thead>
+    <tbody>{% for r in sections %}<tr><td><a href="{{ url_for('teach_section', section_id=r.section.section_id) }}">{{ r.course.course_code }}</a> <span class="muted">{{ r.course.display_title(locale) }}</span></td><td>{{ r.section.section_number }}</td><td>{{ r.term.display_name(locale) }}</td><td class="num">{{ r.enrolled }}/{{ r.section.capacity }}</td></tr>{% endfor %}</tbody>
   </table>
-  {% else %}
-  <div class="empty-state">No sections are assigned to you yet.</div>
-  {% endif %}
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>
 {% endblock %}

@@ -1,148 +1,53 @@
 {% extends "layout.html" %}
-{% block title %}{{ student.full_name }}{% endblock %}
+{% block title %}{{ student.display_name(locale) }}{% endblock %}
 {% block content %}
-<div class="page-eyebrow">Student Record</div>
 <div class="page-header">
-  <h1>{{ student.full_name }} <span class="stamp stamp--default">{{ student.student_number }}</span></h1>
+  <h1>{{ student.display_name(locale) }} <span class="stamp stamp--default">{{ student.student_number }}</span></h1>
   <span class="stamp stamp--{{ status_kind(student.status) }}">{{ student.status }}</span>
 </div>
-
 <div class="grid-2">
   <div>
     <div class="card">
-      <h2>Profile</h2>
-      <div class="ledger-row"><span class="label">Email</span><span class="value" style="font-weight: 400;">{{ student.email }}</span></div>
-      <div class="ledger-row"><span class="label">Phone</span><span class="value" style="font-weight: 400;">{{ student.phone or '—' }}</span></div>
-      <div class="ledger-row"><span class="label">Program</span><span class="value" style="font-weight: 400;">{{ student.program or '—' }}</span></div>
-      <div class="ledger-row"><span class="label">Enrolled since</span><span class="value" style="font-weight: 400;">{{ student.enrollment_date }}</span></div>
-      <form method="post" action="{{ url_for('students_set_status', student_id=student.student_id) }}" style="margin-top: 8px;">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label>Change status</label>
-        <div style="display: flex; gap: 8px;">
-          <select name="status">
-            {% for st in ['active', 'suspended', 'graduated', 'withdrawn'] %}
-            <option value="{{ st }}" {{ 'selected' if st == student.status else '' }}>{{ st }}</option>
-            {% endfor %}
-          </select>
-          <button type="submit" class="btn--small">Update</button>
-        </div>
-      </form>
-
-      <form method="post" action="{{ url_for('students_reset_portal_access', student_id=student.student_id) }}" style="margin-top: 12px;"
-            onsubmit="return confirm('Reset portal access? The student will set a new password with their student number and email.');">
+      <h2>{{ t('nav.students') }}</h2>
+      <div class="ledger-row"><span class="label">{{ t('common.national_id') }}</span><span class="value">{{ student.national_id or '—' }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('common.email') }}</span><span class="value" style="font-weight:400;">{{ student.email }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('common.mobile') }}</span><span class="value" style="font-weight:400;">{{ student.phone or '—' }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('common.gender') }}</span><span class="value">{{ t('common.male') if student.gender=='male' else t('common.female') }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('common.nationality') }}</span><span class="value">{{ t('common.saudi') if student.is_saudi else t('common.non_saudi') }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('student.major') }}</span><span class="value">{{ major.name(locale) if major else '—' }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('student.advisor') }}</span><span class="value">{{ advisor.display_name(locale) if advisor else '—' }}</span></div>
+      <form method="post" action="{{ url_for('students_set_advisor', student_id=student.student_id) }}" style="margin-top:8px; display:flex; gap:6px;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn--ghost btn--small">Reset portal password</button>
+        <select name="advisor_id"><option value="">—</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}" {{ 'selected' if advisor and tt.teacher_id==advisor.teacher_id }}>{{ tt.display_name(locale) }}</option>{% endfor %}</select>
+        <button class="btn--small">{{ t('student.advisor') }}</button>
       </form>
-
-      <div class="card-divider">
-        <h2>Academic standing</h2>
-        <div class="ledger-row"><span class="label">Cumulative GPA</span><span class="value">{{ "%.2f"|format(cum_gpa) if cum_gpa is not none else "N/A" }}</span></div>
-        <div class="ledger-row"><span class="label">Standing</span><span class="value">{{ standing }}</span></div>
-        <div class="ledger-row"><span class="label">Credit hours earned</span><span class="value">{{ earned_hours }}</span></div>
-      </div>
+      <form method="post" action="{{ url_for('students_set_status', student_id=student.student_id) }}" style="margin-top:8px; display:flex; gap:6px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select name="status">{% for st in ['active','suspended','graduated','withdrawn','deferred'] %}<option value="{{ st }}" {{ 'selected' if st==student.status }}>{{ st }}</option>{% endfor %}</select>
+        <button class="btn--small">{{ t('action.update') }}</button>
+      </form>
+      <form method="post" action="{{ url_for('students_portal_reset', student_id=student.student_id) }}" style="margin-top:8px;" onsubmit="return confirm('Reset portal password to national ID?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">Reset portal password</button>
+      </form>
     </div>
-
     <div class="card">
-      <h2>Enroll in a section</h2>
-      {% if open_sections %}
-      <form method="post" action="{{ url_for('students_enroll', student_id=student.student_id) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label>Open section</label>
-        <select name="section_id" required>
-          {% for opt in open_sections %}
-          <option value="{{ opt.section_id }}">{{ opt.course_code }} · sec {{ opt.section_number }} · {{ opt.term_name }} ({{ opt.enrolled }}/{{ opt.capacity }})</option>
-          {% endfor %}
-        </select>
-        <div class="actions-row"><button type="submit" class="btn--primary">Enroll</button></div>
-      </form>
-      {% else %}
-      <p class="muted">No open sections available to enroll in.</p>
-      {% endif %}
+      <h2>{{ t('student.standing') }}</h2>
+      <div class="ledger-row"><span class="label">{{ t('student.gpa') }}</span><span class="value">{{ "%.2f"|format(cum_gpa) if cum_gpa is not none else 'N/A' }} / 5</span></div>
+      <div class="ledger-row"><span class="label">{{ t('student.standing') }}</span><span class="value">{{ standing }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('student.earned_hours') }}</span><span class="value">{{ earned_hours }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('student.remaining_hours') }}</span><span class="value">{{ remaining_hours if remaining_hours is not none else '—' }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('student.balance') }}</span><span class="value">{{ "%.2f"|format(balance) }} SAR</span></div>
     </div>
   </div>
-
-  <div>
-    <div class="card">
-      <h2>Transcript
-        <a href="{{ url_for('students_transcript_pdf', student_id=student.student_id) }}"
-           style="float: right; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.04em;">DOWNLOAD PDF →</a>
-      </h2>
-      {% for term_name, rows, term_gpa in transcript_terms %}
-        <p class="section-label">{{ term_name }}</p>
-        <table style="margin-bottom: 8px;">
-          <thead><tr><th>Course</th><th class="num">Cr</th><th>Grade</th><th>Status</th></tr></thead>
-          <tbody>
-            {% for r in rows %}
-            <tr>
-              <td>{{ r.course_code }}</td>
-              <td class="num">{{ r.credit_hours }}</td>
-              <td><span class="stamp stamp--default">{{ r.grade or '—' }}</span></td>
-              <td><span class="stamp stamp--{{ status_kind(r.status) }}">{{ r.status }}</span></td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        <p class="muted" style="margin-bottom: 18px;">Term GPA: {{ "%.2f"|format(term_gpa) if term_gpa is not none else "N/A" }}</p>
-      {% else %}
-      <div class="empty-state">No enrollment history yet.</div>
-      {% endfor %}
-    </div>
-
-    <div class="card">
-      <h2>Fees &amp; payments</h2>
-      {% if fee_statement %}
+  <div class="card">
+    <h2>{{ t('nav.transcript') }}</h2>
+    {% for term, rows, term_gpa in transcript_terms %}
+      <h3 style="margin-top:12px;">{{ term.display_name(locale) }} {% if term_gpa %}<span class="muted">— {{ "%.2f"|format(term_gpa) }}/5</span>{% endif %}</h3>
       <table>
-        <thead><tr><th>Type</th><th class="num">Amount</th><th class="num">Paid</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead>
-        <tbody>
-          {% for entry in fee_statement %}
-          <tr>
-            <td>{{ entry.fee.fee_type }}</td>
-            <td class="num">{{ "%.2f"|format(entry.fee.amount) }}</td>
-            <td class="num">{{ "%.2f"|format(entry.paid) }}</td>
-            <td class="num">{{ "%.2f"|format(entry.balance) }}</td>
-            <td><span class="stamp stamp--{{ status_kind(entry.fee.status) }}">{{ entry.fee.status }}</span></td>
-            <td>
-              {% if entry.balance > 0 %}
-              <form class="inline" method="post" action="{{ url_for('fees_pay', fee_id=entry.fee.fee_id) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="number" step="0.01" min="0.01" name="amount_paid" placeholder="amount" style="width: 84px; display: inline-block;" required>
-                <button type="submit" class="btn--small">Pay</button>
-              </form>
-              <form class="inline" method="post" action="{{ url_for('fees_waive', fee_id=entry.fee.fee_id) }}"
-                    onsubmit="return confirm('Waive this fee? This cannot be undone.');">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn--ghost btn--small">Waive</button>
-              </form>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
+        <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('grade.numeric') }}</th><th>{{ t('grade.letter') }}</th></tr></thead>
+        <tbody>{% for r in rows %}<tr><td>{{ r['course_code'] }}</td><td class="num">{{ r['numeric_mark']|round|int if r['numeric_mark'] is not none else '—' }}</td><td>{{ r['grade'] or '—' }}</td></tr>{% endfor %}</tbody>
       </table>
-      <p class="muted" style="margin-top: 10px;">Total balance due: <strong style="color: var(--ink); opacity: 1;">{{ "%.2f"|format(balance) }}</strong></p>
-      {% else %}
-      <div class="empty-state">No fees assessed yet.</div>
-      {% endif %}
-
-      <form method="post" action="{{ url_for('students_assess_fee', student_id=student.student_id) }}" style="margin-top: 16px; border-top: 1px solid var(--rule); padding-top: 14px;">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <label>Assess a new fee</label>
-        <div class="field-row">
-          <div><input type="text" name="fee_type" placeholder="Fee type (e.g. Tuition)" required></div>
-          <div><input type="number" step="0.01" min="0.01" name="amount" placeholder="Amount" required></div>
-        </div>
-        <div class="field-row">
-          <div>
-            <select name="term_id">
-              <option value="">No term</option>
-              {% for t in terms %}<option value="{{ t.term_id }}">{{ t.name }}</option>{% endfor %}
-            </select>
-          </div>
-          <div><input type="date" name="due_date"></div>
-        </div>
-        <div class="actions-row"><button type="submit" class="btn--small">Assess fee</button></div>
-      </form>
-    </div>
+    {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endfor %}
   </div>
 </div>
 {% endblock %}

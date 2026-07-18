@@ -1,0 +1,37 @@
+{% extends "portal_layout.html" %}
+{% block title %}{{ t('nav.registration') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('nav.registration') }}</h1></div>
+
+<div class="card">
+  <h2>{{ t('nav.my_grades') }} — {{ t('action.drop') }}</h2>
+  {% if my_courses %}
+  <table>
+    <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('course.title') }}</th><th></th></tr></thead>
+    <tbody>{% for r in my_courses %}<tr>
+      <td>{{ r['course_code'] }}</td>
+      <td>{{ r['title_ar'] if locale=='ar' and r['title_ar'] else r['title'] }}</td>
+      <td><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="drop"><input type="hidden" name="section_id" value="{{ r['section_id'] }}"><button class="btn--ghost btn--small">{{ t('action.drop') }}</button></form></td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="muted">{{ t('empty.none') }}</p>{% endif %}
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h2>{{ t('action.enroll') }}</h2>
+  {% if available %}
+  <table>
+    <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('course.title') }}</th><th>{{ t('role.teacher') }}</th><th class="num">Seats</th><th class="num">{{ t('course.price') }}</th><th></th></tr></thead>
+    <tbody>{% for r in available %}<tr>
+      <td>{{ r.course.course_code }}</td>
+      <td>{{ r.course.display_title(locale) }} <span class="muted">#{{ r.section.section_number }}</span></td>
+      <td>{{ r.teacher.display_name(locale) if r.teacher else 'TBD' }}</td>
+      <td class="num">{{ r.enrolled }}/{{ r.section.capacity }}</td>
+      <td class="num">{{ "%.0f"|format(r.course.price) }}</td>
+      <td><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="enroll"><input type="hidden" name="section_id" value="{{ r.section.section_id }}"><button class="btn--small btn--primary">{{ t('action.enroll') }}</button></form></td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  <p class="muted">{{ t('common.gender') }}: {{ t('common.male') if portal_student.gender=='male' else t('common.female') }} — same-gender sections only.</p>
+  {% else %}<p class="muted">{{ t('empty.none') }}</p>{% endif %}
+</div>
+{% endblock %}

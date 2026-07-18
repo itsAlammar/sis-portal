@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('nav.majors') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('nav.majors') }}</h1></div>
+<div class="grid-2">
+  <div class="card">
+    {% if majors %}
+    <table>
+      <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('common.name') }}</th><th class="num">{{ t('course.credits') }}</th><th>{{ t('common.gender') }}</th></tr></thead>
+      <tbody>{% for m in majors %}<tr><td>{{ m.code }}</td><td>{{ m.name(locale) }}</td><td class="num">{{ m.required_credit_hours }}</td><td>{{ t('common.all') if m.gender=='any' else (t('common.male') if m.gender=='male' else t('common.female')) }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+  </div>
+  <div class="card">
+    <h2>{{ t('action.add') }}</h2>
+    <form method="post" action="{{ url_for('majors_add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>{{ t('course.code') }}</label><input name="code" required>
+      <label>{{ t('common.name') }} (EN)</label><input name="name_en" required>
+      <label>{{ t('common.name') }} (AR)</label><input name="name_ar" dir="rtl" required>
+      <div class="grid-2">
+        <div><label>{{ t('course.credits') }}</label><input type="number" name="required_credit_hours" value="120" min="1"></div>
+        <div><label>{{ t('common.gender') }}</label><select name="gender"><option value="any">{{ t('common.all') }}</option><option value="male">{{ t('common.male') }}</option><option value="female">{{ t('common.female') }}</option></select></div>
+      </div>
+      <label>Dept</label><select name="department_id"><option value="">—</option>{% for d in departments %}<option value="{{ d['department_id'] }}">{{ d['name'] }}</option>{% endfor %}</select>
+      <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

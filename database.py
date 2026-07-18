@@ -1,38 +1,35 @@
 """Database layer: connection management and schema definition.
 
-SQLite is used so the whole system runs from a single file with zero
-external dependencies. To migrate to Postgres/MySQL later, this is the
-only module that needs to change -- every service uses plain SQL with
-`?` placeholders.
+SQLite by default (single-file, zero-dependency). Every service uses
+plain SQL with `?` placeholders, so migrating to Postgres later is
+localized to this module. Set SIS_DB_DIR to relocate the file (e.g. a
+mounted volume in Docker / an EBS volume on AWS).
 """
 
 import os
 import sqlite3
 from pathlib import Path
 
-# SIS_DB_DIR overrides where sis.db lives (e.g. a mounted volume in Docker);
-# by default it sits next to the code, as before.
 DB_PATH = Path(os.environ.get("SIS_DB_DIR") or Path(__file__).parent) / "sis.db"
 
-# Standard 4.0 grade scale. Edit here if your institution uses a 5.0 scale
-# or different letters -- nothing else in the system needs to change,
-# since grade points are always looked up from this table.
+# Saudi 5.0 grade scale: numeric mark (/100) -> letter -> grade points.
+# This is the common NCAAA-style scale. Edit here to change the whole
+# system's grading; nothing else hardcodes these numbers.
+#   letter, grade_points(/5), min_percent, max_percent
 GRADE_SCALE = [
-    # letter, grade_points, min_percent, max_percent
-    ("A",  4.0, 93, 100),
-    ("A-", 3.7, 90, 92),
-    ("B+", 3.3, 87, 89),
-    ("B",  3.0, 83, 86),
-    ("B-", 2.7, 80, 82),
-    ("C+", 2.3, 77, 79),
-    ("C",  2.0, 73, 76),
-    ("C-", 1.7, 70, 72),
-    ("D+", 1.3, 67, 69),
-    ("D",  1.0, 63, 66),
-    ("F",  0.0, 0, 62),
-    ("W",  0.0, None, None),  # Withdrawn -- excluded from GPA math
-    ("I",  0.0, None, None),  # Incomplete -- excluded from GPA math
+    ("A+", 5.00, 95, 100),
+    ("A",  4.75, 90, 94),
+    ("B+", 4.50, 85, 89),
+    ("B",  4.00, 80, 84),
+    ("C+", 3.50, 75, 79),
+    ("C",  3.00, 70, 74),
+    ("D+", 2.50, 65, 69),
+    ("D",  2.00, 60, 64),
+    ("F",  1.00, 0, 59),
+    ("W",  0.00, None, None),  # Withdrawn -- excluded from GPA
+    ("I",  0.00, None, None),  # Incomplete -- excluded from GPA
 ]
+GPA_SCALE_MAX = 5.0
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
@@ -44,26 +41,27 @@ CREATE TABLE IF NOT EXISTS grade_scale (
     max_percent   REAL
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
+
 CREATE TABLE IF NOT EXISTS departments (
     department_id INTEGER PRIMARY KEY AUTOINCREMENT,
     code          TEXT UNIQUE NOT NULL,
-    name          TEXT NOT NULL
+    name          TEXT NOT NULL,
+    name_ar       TEXT
 );
 
-CREATE TABLE IF NOT EXISTS students (
-    student_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_number  TEXT UNIQUE NOT NULL,
-    first_name      TEXT NOT NULL,
-    last_name       TEXT NOT NULL,
-    email           TEXT UNIQUE NOT NULL,
-    phone           TEXT,
-    date_of_birth   TEXT,
-    gender          TEXT,
-    program         TEXT,
-    department_id   INTEGER REFERENCES departments(department_id),
-    enrollment_date TEXT NOT NULL,
-    status          TEXT NOT NULL DEFAULT 'active',
-    created_at      TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS majors (
+    major_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    code                  TEXT UNIQUE NOT NULL,
+    name_en               TEXT NOT NULL,
+    name_ar               TEXT NOT NULL,
+    department_id         INTEGER REFERENCES departments(department_id),
+    required_credit_hours INTEGER NOT NULL DEFAULT 120,
+    gender                TEXT NOT NULL DEFAULT 'any',   -- male, female, any
+    status                TEXT NOT NULL DEFAULT 'active'
 );
 
 CREATE TABLE IF NOT EXISTS teachers (
@@ -71,8 +69,10 @@ CREATE TABLE IF NOT EXISTS teachers (
     employee_number TEXT UNIQUE NOT NULL,
     first_name      TEXT NOT NULL,
     last_name       TEXT NOT NULL,
+    name_ar         TEXT,
     email           TEXT UNIQUE NOT NULL,
     phone           TEXT,
+    gender          TEXT NOT NULL DEFAULT 'male',   -- male, female
     department_id   INTEGER REFERENCES departments(department_id),
     title           TEXT,
     hire_date       TEXT,
@@ -80,14 +80,47 @@ CREATE TABLE IF NOT EXISTS teachers (
     created_at      TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS students (
+    student_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_number  TEXT UNIQUE NOT NULL,
+    national_id     TEXT UNIQUE,                    -- 10 digits
+    first_name      TEXT NOT NULL,
+    second_name     TEXT,
+    third_name      TEXT,
+    last_name       TEXT NOT NULL,
+    name_ar         TEXT,                           -- full quad name in Arabic
+    email           TEXT UNIQUE NOT NULL,
+    phone           TEXT,
+    date_of_birth   TEXT,
+    gender          TEXT NOT NULL DEFAULT 'male',   -- male, female
+    nationality     TEXT NOT NULL DEFAULT 'Saudi',
+    program         TEXT,
+    major_id        INTEGER REFERENCES majors(major_id),
+    advisor_id      INTEGER REFERENCES teachers(teacher_id),
+    department_id   INTEGER REFERENCES departments(department_id),
+    enrollment_date TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'active',
+    password_hash   TEXT,
+    created_at      TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS courses (
     course_id      INTEGER PRIMARY KEY AUTOINCREMENT,
     course_code    TEXT UNIQUE NOT NULL,
     title          TEXT NOT NULL,
+    title_ar       TEXT,
     credit_hours   INTEGER NOT NULL,
+    price          REAL NOT NULL DEFAULT 0,
     department_id  INTEGER REFERENCES departments(department_id),
+    major_id       INTEGER REFERENCES majors(major_id),
     description    TEXT,
     status         TEXT NOT NULL DEFAULT 'active'
+);
+
+CREATE TABLE IF NOT EXISTS course_teachers (
+    course_id  INTEGER NOT NULL REFERENCES courses(course_id),
+    teacher_id INTEGER NOT NULL REFERENCES teachers(teacher_id),
+    PRIMARY KEY (course_id, teacher_id)
 );
 
 CREATE TABLE IF NOT EXISTS course_prerequisites (
@@ -97,14 +130,23 @@ CREATE TABLE IF NOT EXISTS course_prerequisites (
     PRIMARY KEY (course_id, prerequisite_course_id)
 );
 
+CREATE TABLE IF NOT EXISTS academic_years (
+    year_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name      TEXT UNIQUE NOT NULL,   -- e.g. "2025-2026"
+    name_ar   TEXT
+);
+
 CREATE TABLE IF NOT EXISTS terms (
-    term_id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    name          TEXT UNIQUE NOT NULL,
-    start_date    TEXT NOT NULL,
-    end_date      TEXT NOT NULL,
-    is_current    INTEGER NOT NULL DEFAULT 0,
-    add_deadline  TEXT,   -- last date students may register/enroll
-    drop_deadline TEXT    -- last date students may drop without penalty
+    term_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT UNIQUE NOT NULL,
+    name_ar          TEXT,
+    academic_year_id INTEGER REFERENCES academic_years(year_id),
+    kind             TEXT NOT NULL DEFAULT 'regular',  -- regular, summer
+    start_date       TEXT NOT NULL,
+    end_date         TEXT NOT NULL,
+    is_current       INTEGER NOT NULL DEFAULT 0,
+    add_deadline     TEXT,
+    drop_deadline    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sections (
@@ -113,10 +155,11 @@ CREATE TABLE IF NOT EXISTS sections (
     term_id        INTEGER NOT NULL REFERENCES terms(term_id),
     section_number TEXT NOT NULL,
     teacher_id     INTEGER REFERENCES teachers(teacher_id),
+    gender         TEXT NOT NULL DEFAULT 'male',   -- male, female (segregated)
     room           TEXT,
-    days           TEXT,    -- comma-separated: SUN,MON,TUE,WED,THU,FRI,SAT
-    start_time     TEXT,    -- "HH:MM" 24h
-    end_time       TEXT,    -- "HH:MM" 24h
+    days           TEXT,
+    start_time     TEXT,
+    end_time       TEXT,
     capacity       INTEGER NOT NULL DEFAULT 30,
     status         TEXT NOT NULL DEFAULT 'open',
     UNIQUE(course_id, term_id, section_number)
@@ -128,17 +171,42 @@ CREATE TABLE IF NOT EXISTS enrollments (
     section_id      INTEGER NOT NULL REFERENCES sections(section_id),
     enrollment_date TEXT NOT NULL,
     status          TEXT NOT NULL DEFAULT 'enrolled',   -- enrolled, dropped, completed
+    numeric_mark    REAL,                                -- /100
     grade           TEXT REFERENCES grade_scale(letter),
     grade_points    REAL,
     UNIQUE(student_id, section_id)
+);
+
+CREATE TABLE IF NOT EXISTS admission_applications (
+    application_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    national_id    TEXT NOT NULL,
+    first_name     TEXT NOT NULL,
+    second_name    TEXT NOT NULL,
+    third_name     TEXT NOT NULL,
+    last_name      TEXT NOT NULL,
+    name_ar        TEXT NOT NULL,
+    email          TEXT NOT NULL,
+    phone          TEXT NOT NULL,
+    date_of_birth  TEXT NOT NULL,
+    gender         TEXT NOT NULL,
+    nationality    TEXT NOT NULL,
+    major_id       INTEGER REFERENCES majors(major_id),
+    status         TEXT NOT NULL DEFAULT 'pending',   -- pending, approved, rejected
+    student_id     INTEGER REFERENCES students(student_id),
+    review_note    TEXT,
+    reviewed_by    TEXT,
+    reviewed_at    TEXT,
+    created_at     TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS fees (
     fee_id        INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id    INTEGER NOT NULL REFERENCES students(student_id),
     term_id       INTEGER REFERENCES terms(term_id),
-    fee_type      TEXT NOT NULL,
+    course_id     INTEGER REFERENCES courses(course_id),   -- per-course billing
+    fee_type      TEXT NOT NULL,       -- Tuition, Registration, VAT, ...
     amount        REAL NOT NULL,
+    tax_amount    REAL NOT NULL DEFAULT 0,
     due_date      TEXT,
     status        TEXT NOT NULL DEFAULT 'pending',  -- pending, partial, paid, overdue, waived
     waived_reason TEXT,
@@ -159,25 +227,37 @@ CREATE TABLE IF NOT EXISTS waitlist (
     student_id  INTEGER NOT NULL REFERENCES students(student_id),
     section_id  INTEGER NOT NULL REFERENCES sections(section_id),
     joined_at   TEXT NOT NULL,
-    status      TEXT NOT NULL DEFAULT 'waiting',  -- waiting, promoted, cancelled, skipped
+    status      TEXT NOT NULL DEFAULT 'waiting',
     UNIQUE(student_id, section_id)
+);
+
+CREATE TABLE IF NOT EXISTS service_requests (
+    request_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id  INTEGER NOT NULL REFERENCES students(student_id),
+    kind        TEXT NOT NULL,   -- deferral, major_transfer, exam_deferral, equivalency, other
+    details     TEXT,
+    status      TEXT NOT NULL DEFAULT 'pending',  -- pending, approved, rejected
+    review_note TEXT,
+    reviewed_by TEXT,
+    reviewed_at TEXT,
+    created_at  TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS users (
     user_id       INTEGER PRIMARY KEY AUTOINCREMENT,
     username      TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL CHECK (role IN ('admin', 'registrar', 'teacher')),
-    teacher_id    INTEGER REFERENCES teachers(teacher_id),  -- required when role = teacher
-    status        TEXT NOT NULL DEFAULT 'active',           -- active, disabled
+    role          TEXT NOT NULL CHECK (role IN ('admin', 'registrar', 'teacher', 'accounting')),
+    teacher_id    INTEGER REFERENCES teachers(teacher_id),
+    status        TEXT NOT NULL DEFAULT 'active',
     created_at    TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
     audit_id    INTEGER PRIMARY KEY AUTOINCREMENT,
-    at          TEXT NOT NULL,     -- ISO timestamp
-    actor       TEXT NOT NULL,     -- 'staff:username' or 'student:S20250001' or 'system'
-    action      TEXT NOT NULL,     -- e.g. grade.assign, fee.waive, enrollment.add
+    at          TEXT NOT NULL,
+    actor       TEXT NOT NULL,
+    action      TEXT NOT NULL,
     entity_type TEXT,
     entity_id   INTEGER,
     details     TEXT
@@ -190,57 +270,62 @@ CREATE INDEX IF NOT EXISTS idx_sections_term ON sections(term_id);
 CREATE INDEX IF NOT EXISTS idx_fees_student ON fees(student_id);
 CREATE INDEX IF NOT EXISTS idx_payments_fee ON payments(fee_id);
 CREATE INDEX IF NOT EXISTS idx_waitlist_section ON waitlist(section_id);
+CREATE INDEX IF NOT EXISTS idx_applications_status ON admission_applications(status);
+CREATE INDEX IF NOT EXISTS idx_requests_status ON service_requests(status);
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at);
 """
 
+# Default admin-controlled settings.
+DEFAULT_SETTINGS = {
+    "registration_fee": "500",   # flat registration fee (SAR)
+    "vat_rate": "15",            # VAT percent, applied to non-Saudi registration fee only
+    "institution_name_en": "Academy",
+    "institution_name_ar": "الأكاديمية",
+}
 
-def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
-    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    return any(r["name"] == column for r in rows)
+
+def _column_exists(conn, table, column):
+    return any(r["name"] == column for r in conn.execute(f"PRAGMA table_info({table})"))
 
 
-def _migrate(conn: sqlite3.Connection) -> None:
-    """Safely upgrades a database created by an earlier version of this
-    schema. Safe to call every time -- each step checks before acting."""
-    simple_column_additions = [
+def _migrate(conn):
+    """Forward-compatible column additions for databases created by an
+    earlier build. Safe to run every start-up."""
+    additions = [
+        ("students", "national_id", "TEXT"),
+        ("students", "second_name", "TEXT"),
+        ("students", "third_name", "TEXT"),
+        ("students", "name_ar", "TEXT"),
+        ("students", "gender", "TEXT NOT NULL DEFAULT 'male'"),
+        ("students", "nationality", "TEXT NOT NULL DEFAULT 'Saudi'"),
+        ("students", "major_id", "INTEGER"),
+        ("students", "advisor_id", "INTEGER"),
+        ("students", "password_hash", "TEXT"),
+        ("teachers", "name_ar", "TEXT"),
+        ("teachers", "gender", "TEXT NOT NULL DEFAULT 'male'"),
+        ("courses", "title_ar", "TEXT"),
+        ("courses", "price", "REAL NOT NULL DEFAULT 0"),
+        ("courses", "major_id", "INTEGER"),
+        ("sections", "gender", "TEXT NOT NULL DEFAULT 'male'"),
+        ("terms", "name_ar", "TEXT"),
+        ("terms", "academic_year_id", "INTEGER"),
+        ("terms", "kind", "TEXT NOT NULL DEFAULT 'regular'"),
         ("terms", "add_deadline", "TEXT"),
         ("terms", "drop_deadline", "TEXT"),
+        ("enrollments", "numeric_mark", "REAL"),
+        ("fees", "course_id", "INTEGER"),
+        ("fees", "tax_amount", "REAL NOT NULL DEFAULT 0"),
         ("fees", "waived_reason", "TEXT"),
-        ("students", "password_hash", "TEXT"),
     ]
-    for table, column, coltype in simple_column_additions:
+    for table, column, coltype in additions:
         if not _column_exists(conn, table, column):
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
-
-    # course_prerequisites.group_id needs care: a naive ADD COLUMN with a
-    # constant default would silently turn every pre-existing prerequisite
-    # into one big "OR" group. Each existing row gets its own group instead,
-    # preserving the original "all of these are required" behavior.
-    if not _column_exists(conn, "course_prerequisites", "group_id"):
-        conn.execute("ALTER TABLE course_prerequisites ADD COLUMN group_id INTEGER")
-        rows = conn.execute(
-            "SELECT rowid, course_id FROM course_prerequisites ORDER BY course_id, rowid"
-        ).fetchall()
-        counters = {}
-        for row in rows:
-            counters[row["course_id"]] = counters.get(row["course_id"], 0) + 1
-            conn.execute(
-                "UPDATE course_prerequisites SET group_id = ? WHERE rowid = ?",
-                (counters[row["course_id"]], row["rowid"]),
-            )
-        conn.execute("UPDATE course_prerequisites SET group_id = 1 WHERE group_id IS NULL")
     conn.commit()
 
 
 def get_connection(db_path: Path = None) -> sqlite3.Connection:
-    # DB_PATH is looked up at call time (not bound as a default) so tests
-    # and tools can repoint it before connecting.
     conn = sqlite3.connect(db_path if db_path is not None else DB_PATH, timeout=15)
     conn.execute("PRAGMA foreign_keys = ON;")
-    # WAL lets readers proceed while one writer commits; busy_timeout makes
-    # concurrent writers wait instead of failing immediately with
-    # "database is locked". Enough for a small deployment; move to Postgres
-    # for genuinely high concurrency (see README).
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA busy_timeout = 15000;")
     conn.row_factory = sqlite3.Row
@@ -250,11 +335,25 @@ def get_connection(db_path: Path = None) -> sqlite3.Connection:
 def initialize_database(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
     _migrate(conn)
-    cur = conn.execute("SELECT COUNT(*) AS cnt FROM grade_scale")
-    if cur.fetchone()["cnt"] == 0:
+    if conn.execute("SELECT COUNT(*) AS c FROM grade_scale").fetchone()["c"] == 0:
         conn.executemany(
             "INSERT INTO grade_scale (letter, grade_points, min_percent, max_percent) "
-            "VALUES (?, ?, ?, ?)",
-            GRADE_SCALE,
+            "VALUES (?, ?, ?, ?)", GRADE_SCALE,
         )
+    for key, value in DEFAULT_SETTINGS.items():
+        conn.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", (key, value))
+    conn.commit()
+
+
+def get_setting(conn, key, default=None):
+    row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def set_setting(conn, key, value):
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, str(value)),
+    )
     conn.commit()

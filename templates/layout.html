@@ -1,60 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ locale }}" dir="{{ dir }}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% block title %}Dashboard{% endblock %} · SIS</title>
+<title>{% block title %}{{ t('nav.dashboard') }}{% endblock %} · {{ t('app.short') }}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <div class="shell">
   <nav class="sidebar">
-    <div class="eyebrow">{{ 'Teacher View' if staff_user and staff_user.role == 'teacher' else 'Office of the Registrar' }}</div>
-    <h1><a href="{{ url_for('landing') }}" style="color: inherit;">SIS</a></h1>
-    {% if current_term %}
-      <div class="term-badge">{{ current_term.name }}</div>
-    {% endif %}
-    {% if staff_user and staff_user.role == 'teacher' %}
+    <div class="eyebrow">
+      {% if staff_user and staff_user.role == 'teacher' %}{{ t('role.teacher') }}
+      {% elif staff_user and staff_user.role == 'accounting' %}{{ t('role.accounting') }}
+      {% else %}{{ t('landing.registrar_title') }}{% endif %}
+    </div>
+    <h1><a href="{{ url_for('landing') }}" style="color:inherit;">{{ t('app.short') }}</a></h1>
+    {% if current_term %}<div class="term-badge">{{ current_term.display_name(locale) }}</div>{% endif %}
     <ul class="nav-list">
-      <li><a href="{{ url_for('teach_dashboard') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('teach') else '' }}">My sections</a></li>
-    </ul>
-    {% else %}
-    <ul class="nav-list">
-      <li><a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Dashboard</a></li>
-      <li><a href="{{ url_for('students_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('students') else '' }}">Students</a></li>
-      <li><a href="{{ url_for('teachers_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('teachers') else '' }}">Teachers</a></li>
-      <li><a href="{{ url_for('courses_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('courses') else '' }}">Courses</a></li>
-      <li><a href="{{ url_for('terms_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('terms') else '' }}">Terms</a></li>
-      <li><a href="{{ url_for('sections_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('sections') else '' }}">Sections</a></li>
-      {% if staff_user %}
-      <li><a href="{{ url_for('audit_log') }}" class="{{ 'active' if request.endpoint == 'audit_log' else '' }}">Audit log</a></li>
-      {% endif %}
-      {% if staff_user and staff_user.role == 'admin' %}
-      <li><a href="{{ url_for('users_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('users') else '' }}">Users</a></li>
-      {% endif %}
-    </ul>
-    {% endif %}
-    <div style="margin-top: 26px; padding-top: 16px; border-top: 1px solid rgba(245, 244, 239, 0.15);">
-      {% if staff_user %}
-      <div style="font-size: 12.5px; color: rgba(245, 244, 239, 0.6); margin-bottom: 8px;">
-        Signed in as <strong>{{ staff_user.username }}</strong> ({{ staff_user.role }})
-      </div>
-      <form method="post" action="{{ url_for('staff_logout') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn--ghost btn--small">Log out</button>
-      </form>
+      {% if staff_user and staff_user.role == 'teacher' %}
+        <li><a href="{{ url_for('teach_dashboard') }}">{{ t('nav.my_sections') }}</a></li>
+      {% elif staff_user and staff_user.role == 'accounting' %}
+        <li><a href="{{ url_for('financial_overview') }}">{{ t('nav.financial') }}</a></li>
       {% else %}
-      <a href="{{ url_for('portal_login') }}" style="font-size: 12.5px; color: rgba(245, 244, 239, 0.6);">Student Portal →</a>
+        <li><a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint=='dashboard' }}">{{ t('nav.dashboard') }}</a></li>
+        <li><a href="{{ url_for('admissions_list') }}" class="{{ 'active' if request.endpoint and 'admission' in request.endpoint }}">{{ t('nav.admissions') }}{% if pending_admissions %}<span class="pill">{{ pending_admissions }}</span>{% endif %}</a></li>
+        <li><a href="{{ url_for('students_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('students') }}">{{ t('nav.students') }}</a></li>
+        <li><a href="{{ url_for('teachers_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('teachers') }}">{{ t('nav.teachers') }}</a></li>
+        <li><a href="{{ url_for('courses_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('courses') }}">{{ t('nav.courses') }}</a></li>
+        <li><a href="{{ url_for('majors_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('majors') }}">{{ t('nav.majors') }}</a></li>
+        <li><a href="{{ url_for('terms_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('terms') }}">{{ t('nav.terms') }}</a></li>
+        <li><a href="{{ url_for('sections_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('sections') }}">{{ t('nav.sections') }}</a></li>
+        <li><a href="{{ url_for('requests_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('requests') }}">{{ t('nav.other_services') }}{% if pending_requests %}<span class="pill">{{ pending_requests }}</span>{% endif %}</a></li>
+        {% if staff_user and staff_user.role == 'admin' %}
+        <li><a href="{{ url_for('financial_overview') }}">{{ t('nav.financial') }}</a></li>
+        <li><a href="{{ url_for('users_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('users') }}">{{ t('nav.roles') }}</a></li>
+        <li><a href="{{ url_for('settings') }}" class="{{ 'active' if request.endpoint=='settings' }}">{{ t('nav.settings') }}</a></li>
+        {% endif %}
+        <li><a href="{{ url_for('audit_log') }}" class="{{ 'active' if request.endpoint=='audit_log' }}">{{ t('nav.audit') }}</a></li>
+      {% endif %}
+      <li><a href="{{ url_for('lms_placeholder') }}" class="soon">🎓 {{ t('nav.lms') }} <span class="badge-soon">{{ t('soon.badge') }}</span></a></li>
+    </ul>
+    <div style="margin-top:22px; padding-top:14px; border-top:1px solid rgba(245,244,239,0.15);">
+      <a class="lang-toggle" href="{{ url_for('set_lang', code='ar' if locale=='en' else 'en') }}">{{ t('lang.toggle') }}</a>
+      {% if staff_user %}
+      <div style="font-size:12px; color:rgba(245,244,239,0.6); margin:8px 0;">{{ t('auth.signed_in_as') }} <strong>{{ staff_user.username }}</strong></div>
+      <form method="post" action="{{ url_for('staff_logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">{{ t('action.logout') }}</button></form>
       {% endif %}
     </div>
   </nav>
   <main class="main">
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="flash flash--{{ category }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
+      {% for category, message in messages %}<div class="flash flash--{{ category }}">{{ message }}</div>{% endfor %}
     {% endwith %}
     {% block content %}{% endblock %}
   </main>

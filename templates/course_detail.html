@@ -1,54 +1,32 @@
 {% extends "layout.html" %}
 {% block title %}{{ course.course_code }}{% endblock %}
 {% block content %}
-<div class="page-eyebrow">Course Catalog</div>
-<div class="page-header"><h1>{{ course.course_code }} <span class="muted" style="font-family: 'IBM Plex Sans'; font-weight: 400;">— {{ course.title }}</span></h1></div>
-
+<div class="page-header"><h1>{{ course.course_code }} <span class="muted">{{ course.display_title(locale) }}</span></h1></div>
 <div class="grid-2">
   <div class="card">
-    <h2>Details</h2>
-    <div class="ledger-row"><span class="label">Credit hours</span><span class="value">{{ course.credit_hours }}</span></div>
-    <div class="ledger-row"><span class="label">Status</span><span class="value">{{ course.status }}</span></div>
-    <p class="muted" style="margin-top: 12px;">{{ course.description or 'No description on file.' }}</p>
+    <h2>{{ t('nav.courses') }}</h2>
+    <div class="ledger-row"><span class="label">{{ t('course.credits') }}</span><span class="value">{{ course.credit_hours }}</span></div>
+    <div class="ledger-row"><span class="label">{{ t('course.price') }}</span><span class="value">{{ "%.2f"|format(course.price) }} SAR</span></div>
+    <h3 style="margin-top:14px;">{{ t('course.teachers') }}</h3>
+    {% for tt in assigned %}
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0;">
+        <span>{{ tt.display_name(locale) }} <span class="muted">({{ t('common.male') if tt.gender=='male' else t('common.female') }})</span></span>
+        <form method="post" action="{{ url_for('courses_remove_teacher', course_id=course.course_id, teacher_id=tt.teacher_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">✕</button></form>
+      </div>
+    {% else %}<p class="muted">—</p>{% endfor %}
+    <form method="post" action="{{ url_for('courses_assign_teacher', course_id=course.course_id) }}" style="margin-top:8px; display:flex; gap:6px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <select name="teacher_id" required>{% for tt in teachers %}<option value="{{ tt.teacher_id }}">{{ tt.display_name(locale) }}</option>{% endfor %}</select>
+      <button class="btn--small btn--primary">+ {{ t('action.add') }}</button>
+    </form>
   </div>
   <div class="card">
     <h2>Prerequisites</h2>
-    {% if prerequisite_groups %}
-      {% for group in prerequisite_groups %}
-      <p style="margin: 6px 0;">
-        {% for c in group %}
-        <span class="stamp stamp--default">{{ c.course_code }}</span>{% if not loop.last %}<span class="muted" style="margin: 0 6px;">or</span>{% endif %}
-        {% endfor %}
-      </p>
-      {% endfor %}
-      <p class="muted" style="margin-top: 8px;">Each line above is required; picking any one course within a line satisfies it.</p>
-    {% else %}
-      <p class="muted">None required.</p>
-    {% endif %}
-
-    <form method="post" action="{{ url_for('courses_add_prereq', course_id=course.course_id) }}" style="margin-top: 14px;">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label>Require a single course</label>
-      <div style="display: flex; gap: 8px;">
-        <select name="prerequisite_course_id">
-          {% for c in all_courses if c.course_id != course.course_id %}
-          <option value="{{ c.course_id }}">{{ c.course_code }} — {{ c.title }}</option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="btn--small">Add</button>
-      </div>
-    </form>
-
-    <form method="post" action="{{ url_for('courses_add_prereq_group', course_id=course.course_id) }}" style="margin-top: 14px;">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label>Or require any ONE of several alternatives</label>
-      <select name="alt_course_ids" multiple size="5" style="height: auto;">
-        {% for c in all_courses if c.course_id != course.course_id %}
-        <option value="{{ c.course_id }}">{{ c.course_code }} — {{ c.title }}</option>
-        {% endfor %}
-      </select>
-      <p class="muted" style="margin: 4px 0;">Ctrl/Cmd-click to select 2 or more courses as alternatives.</p>
-      <div class="actions-row"><button type="submit" class="btn--small">Add alternative group</button></div>
+    {% for group in prerequisite_groups %}<div>{{ group | map(attribute='course_code') | join(' / ') }}</div>{% else %}<p class="muted">—</p>{% endfor %}
+    <form method="post" action="{{ url_for('courses_add_prereq', course_id=course.course_id) }}" style="margin-top:10px; display:flex; gap:6px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <select name="prerequisite_course_id" required>{% for c in all_courses %}{% if c.course_id != course.course_id %}<option value="{{ c.course_id }}">{{ c.course_code }}</option>{% endif %}{% endfor %}</select>
+      <button class="btn--small">+ {{ t('action.add') }}</button>
     </form>
   </div>
 </div>

@@ -17,7 +17,7 @@ from exceptions import DuplicateError, NotFoundError, ValidationError
 from models import Student, User
 
 PBKDF2_ITERATIONS = 300_000
-VALID_ROLES = {"admin", "registrar", "teacher"}
+VALID_ROLES = {"admin", "registrar", "teacher", "accounting"}
 MIN_PASSWORD_LENGTH = 8
 
 

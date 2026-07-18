@@ -6,7 +6,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from database import get_connection, initialize_database  # noqa: E402
-from auth_service import AuthService  # noqa: E402
+from major_service import MajorService  # noqa: E402
 from student_service import StudentService  # noqa: E402
 from teacher_service import TeacherService  # noqa: E402
 from course_service import CourseService  # noqa: E402
@@ -16,101 +16,49 @@ from section_service import SectionService  # noqa: E402
 
 @pytest.fixture
 def conn(tmp_path):
-    connection = get_connection(tmp_path / "test.db")
-    initialize_database(connection)
-    yield connection
-    connection.close()
+    c = get_connection(tmp_path / "test.db")
+    initialize_database(c)
+    yield c
+    c.close()
 
 
 @pytest.fixture
-def seeded(conn):
-    """A small consistent world: one term, two courses (CS102 requires
-    CS101), one 2-seat section, three active students."""
+def world(conn):
+    """A small bilingual, gender-mixed world for the tests."""
     terms = TermService(conn)
-    term = terms.add_term("Fall 2030", "2030-09-01", "2030-12-20")
+    year = terms.get_or_create_year("2030-2031", "سنة")
+    term = terms.add_term("Fall 2030", "2030-09-01", "2030-12-20", name_ar="الأول",
+                          academic_year_id=year.year_id)
     terms.set_current_term(term.term_id)
 
+    majors = MajorService(conn)
+    cs = majors.add_major("CS", "Computer Science", "علوم الحاسب", 120)
+
     teachers = TeacherService(conn)
-    teacher = teachers.add_teacher("Tina", "Teach", "tina@test.edu")
+    t_m = teachers.add_teacher("Omar", "M", "om@t.edu", "عمر", gender="male")
+    t_f = teachers.add_teacher("Sara", "F", "sa@t.edu", "سارة", gender="female")
 
     courses = CourseService(conn)
-    cs101 = courses.add_course("CS101", "Intro", 3)
-    cs102 = courses.add_course("CS102", "Data Structures", 3)
+    cs101 = courses.add_course("CS101", "Intro", 3, title_ar="مقدمة", price=1000, major_id=cs.major_id)
+    cs102 = courses.add_course("CS102", "DS", 3, title_ar="هياكل", price=1000)
     courses.add_prerequisite(cs102.course_id, cs101.course_id)
+    courses.assign_teacher(cs101.course_id, t_m.teacher_id)
+    courses.assign_teacher(cs101.course_id, t_f.teacher_id)
 
     sections = SectionService(conn)
-    sec101 = sections.add_section(cs101.course_id, term.term_id, "01",
-                                  teacher_id=teacher.teacher_id, capacity=2,
-                                  days="MON,WED", start_time="09:00", end_time="09:50")
-    sec102 = sections.add_section(cs102.course_id, term.term_id, "01",
-                                  teacher_id=teacher.teacher_id, capacity=10)
+    sec_m = sections.add_section(cs101.course_id, term.term_id, "01",
+                                 teacher_id=t_m.teacher_id, gender="male", capacity=2)
+    sec_f = sections.add_section(cs101.course_id, term.term_id, "02",
+                                 teacher_id=t_f.teacher_id, gender="female", capacity=5)
+    sec102_m = sections.add_section(cs102.course_id, term.term_id, "01",
+                                    teacher_id=t_m.teacher_id, gender="male", capacity=5)
 
     students = StudentService(conn)
-    alice = students.add_student("Alice", "One", "alice@test.edu")
-    bob = students.add_student("Bob", "Two", "bob@test.edu")
-    carol = students.add_student("Carol", "Three", "carol@test.edu")
+    male = students.add_student("Ali", "K", "ali@s.edu", name_ar="علي", national_id="1111111111",
+                                gender="male", nationality="Saudi", major_id=cs.major_id)
+    female = students.add_student("Reem", "S", "reem@s.edu", name_ar="ريم", national_id="2222222222",
+                                  gender="female", nationality="Non-Saudi", major_id=cs.major_id)
 
-    return {
-        "conn": conn, "term": term, "teacher": teacher,
-        "cs101": cs101, "cs102": cs102, "sec101": sec101, "sec102": sec102,
-        "alice": alice, "bob": bob, "carol": carol,
-    }
-
-
-@pytest.fixture
-def webapp(tmp_path, monkeypatch):
-    """Flask test client wired to a throwaway database, plus helpers."""
-    import database
-    monkeypatch.setattr(database, "DB_PATH", tmp_path / "web.db")
-    import webapp as webapp_module
-    webapp_module.app.config["TESTING"] = True
-
-    conn = get_connection(tmp_path / "web.db")
-    initialize_database(conn)
-
-    auth = AuthService(conn)
-    admin = auth.create_user("boss", "admin-pass-1", "admin")
-    registrar = auth.create_user("reggie", "registrar-pw", "registrar")
-
-    teacher_rec = TeacherService(conn).add_teacher("Tina", "Teach", "tina@web.edu")
-    other_teacher = TeacherService(conn).add_teacher("Oscar", "Other", "oscar@web.edu")
-    teacher_user = auth.create_user("tina", "teacher-pw-1", "teacher",
-                                    teacher_id=teacher_rec.teacher_id)
-
-    term = TermService(conn).add_term("Fall 2030", "2030-09-01", "2030-12-20")
-    course = CourseService(conn).add_course("CS101", "Intro", 3)
-    sections = SectionService(conn)
-    own_section = sections.add_section(course.course_id, term.term_id, "01",
-                                       teacher_id=teacher_rec.teacher_id, capacity=5)
-    other_section = sections.add_section(course.course_id, term.term_id, "02",
-                                         teacher_id=other_teacher.teacher_id, capacity=5)
-
-    student = StudentService(conn).add_student("Sam", "Student", "sam@web.edu")
-
-    client = webapp_module.app.test_client()
-
-    def login(username, password):
-        page = client.get("/login")
-        token = _extract_csrf(page)
-        return client.post("/login", data={
-            "username": username, "password": password, "csrf_token": token,
-        }, follow_redirects=False)
-
-    def csrf(path="/login"):
-        return _extract_csrf(client.get(path))
-
-    yield {
-        "client": client, "conn": conn, "login": login, "csrf": csrf,
-        "admin": admin, "registrar": registrar, "teacher_user": teacher_user,
-        "teacher_rec": teacher_rec, "own_section": own_section,
-        "other_section": other_section, "student": student, "term": term,
-    }
-    conn.close()
-
-
-def _extract_csrf(response):
-    import re
-    html = response.get_data(as_text=True)
-    m = re.search(r'name="csrf_token" value="([^"]+)"', html)
-    assert m, "no csrf token found in page"
-    return m.group(1)
+    return dict(conn=conn, term=term, cs=cs, cs101=cs101, cs102=cs102,
+                sec_m=sec_m, sec_f=sec_f, sec102_m=sec102_m, male=male, female=female,
+                t_m=t_m, t_f=t_f)

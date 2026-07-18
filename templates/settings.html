@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('nav.settings') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('nav.settings') }}</h1></div>
+<div class="card" style="max-width:520px;">
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>{{ t('fin.registration_fee') }} (SAR)</label><input type="number" name="registration_fee" step="0.01" value="{{ settings.registration_fee }}">
+  <label>{{ t('fin.tax') }} % ({{ t('common.non_saudi') }})</label><input type="number" name="vat_rate" step="0.01" value="{{ settings.vat_rate }}">
+  <label>Institution (EN)</label><input name="institution_name_en" value="{{ settings.institution_name_en }}">
+  <label>Institution (AR)</label><input name="institution_name_ar" dir="rtl" value="{{ settings.institution_name_ar }}">
+  <label style="font-weight:400; margin-top:10px;"><input type="checkbox" name="lms_enabled" {{ 'checked' if settings.lms_enabled=='1' }}> {{ t('nav.lms_soon') }}</label>
+  <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
+</form>
+</div>
+{% endblock %}
