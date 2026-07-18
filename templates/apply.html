@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}" dir="{{ dir }}">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ t('adm.apply') }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="landing-body">
+  <div class="landing-card-solo" style="max-width:640px;">
+    <div class="topbar"><a class="lang-toggle" href="{{ url_for('set_lang', code='ar' if locale=='en' else 'en') }}">{{ t('lang.toggle') }}</a></div>
+    <div class="page-eyebrow">{{ t('nav.admissions') }}</div>
+    <h1>{{ t('adm.apply') }}</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for c, m in messages %}<div class="flash flash--{{ c }}">{{ m }}</div>{% endfor %}
+    {% endwith %}
+    <p class="muted">{{ t('common.required_note') }}</p>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>{{ t('common.national_id') }}</label>
+      <input type="text" name="national_id" required pattern="\d{10}" maxlength="10" placeholder="10 digits" title="{{ t('adm.id_ten_digits') }}">
+      <label>{{ t('student.name_ar') }}</label>
+      <input type="text" name="name_ar" required dir="rtl" placeholder="الاسم الرباعي">
+      <div class="grid-2">
+        <div><label>{{ t('student.first_name') }}</label><input type="text" name="first_name" required></div>
+        <div><label>{{ t('student.second_name') }}</label><input type="text" name="second_name" required></div>
+        <div><label>{{ t('student.third_name') }}</label><input type="text" name="third_name" required></div>
+        <div><label>{{ t('student.last_name') }}</label><input type="text" name="last_name" required></div>
+      </div>
+      <label>{{ t('common.email') }}</label><input type="email" name="email" required>
+      <label>{{ t('common.mobile') }}</label><input type="text" name="phone" required>
+      <label>{{ t('common.date_of_birth') }}</label><input type="date" name="date_of_birth" required>
+      <div class="grid-2">
+        <div><label>{{ t('common.gender') }}</label>
+          <select name="gender" required><option value="male">{{ t('common.male') }}</option><option value="female">{{ t('common.female') }}</option></select></div>
+        <div><label>{{ t('common.nationality') }}</label>
+          <select name="nationality" required><option value="Saudi">{{ t('common.saudi') }}</option><option value="Non-Saudi">{{ t('common.non_saudi') }}</option></select></div>
+      </div>
+      <label>{{ t('student.major') }}</label>
+      <select name="major_id"><option value="">—</option>{% for m in majors %}<option value="{{ m.major_id }}">{{ m.name(locale) }} ({{ m.code }})</option>{% endfor %}</select>
+      <div class="actions-row"><button class="btn--primary">{{ t('action.submit') }}</button></div>
+    </form>
+    <p class="muted" style="margin-top:14px;"><a href="{{ url_for('landing') }}">← {{ t('action.back') }}</a></p>
+  </div>
+</body>
+</html>

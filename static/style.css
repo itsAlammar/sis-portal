@@ -276,3 +276,20 @@ form.inline { display: inline; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- RTL + bilingual + v2 helpers ---------- */
+[dir="rtl"] { text-align: right; }
+[dir="rtl"] .sidebar { border-right: none; border-left: 1px solid rgba(245,244,239,0.1); }
+[dir="rtl"] .num { text-align: left; }
+[dir="rtl"] table th, [dir="rtl"] table td { text-align: right; }
+.lang-toggle { display:inline-block; font-size:12.5px; padding:4px 10px; border:1px solid var(--rule,#ccc);
+  border-radius:6px; color:inherit; text-decoration:none; }
+.lang-toggle:hover { background: rgba(0,0,0,0.04); }
+.topbar { display:flex; justify-content:flex-end; gap:10px; align-items:center; margin-bottom:14px; }
+.pill { display:inline-block; font-size:11px; padding:1px 7px; border-radius:20px; background:#8a1c1c; color:#fff; margin-inline-start:6px; }
+.grid-3 { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:16px; }
+.stat-card { border:1px solid var(--rule,#e5e3dc); border-radius:10px; padding:18px; background:var(--card,#fff); }
+.stat-card .n { font-size:26px; font-weight:700; }
+.stat-card .l { font-size:12.5px; color:#777; margin-top:4px; }
+.soon { opacity:0.65; }
+.badge-soon { font-size:10.5px; background:#e8e5db; color:#666; padding:1px 6px; border-radius:10px; }

@@ -1,59 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ locale }}" dir="{{ dir }}">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sign In · Student Portal</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ t('landing.portal_title') }}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="landing-body">
   <div class="landing-card-solo">
-    <div class="page-eyebrow">Student Portal</div>
-    <h1>{{ 'Activate your account' if mode == 'activate' else 'Sign in' }}</h1>
+    <div class="topbar"><a class="lang-toggle" href="{{ url_for('set_lang', code='ar' if locale=='en' else 'en') }}">{{ t('lang.toggle') }}</a></div>
+    <div class="page-eyebrow">{{ t('landing.portal_title') }}</div>
+    <h1>{{ t('action.login') }}</h1>
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="flash flash--{{ category }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
+      {% for c, m in messages %}<div class="flash flash--{{ c }}">{{ m }}</div>{% endfor %}
     {% endwith %}
-
-    {% if mode == 'activate' %}
-    <p class="muted">First time here? Confirm the email the registrar has on
-    file, then choose a password for the portal.</p>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="mode" value="activate">
-      <label>Student number</label>
-      <input type="text" name="student_number" placeholder="e.g. S20250001" required autofocus>
-      <label>Email on file</label>
-      <input type="email" name="email" required>
-      <label>Choose a password (at least 8 characters)</label>
-      <input type="password" name="password" required minlength="8" autocomplete="new-password">
-      <label>Confirm password</label>
-      <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password">
-      <div class="actions-row"><button type="submit" class="btn--primary">Activate &amp; sign in</button></div>
-    </form>
-    <p class="muted" style="margin-top: 16px;">
-      Already activated? <a href="{{ url_for('portal_login') }}">Sign in</a> ·
-      <a href="{{ url_for('landing') }}">← Back</a>
-    </p>
-    {% else %}
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" name="mode" value="login">
-      <label>Student number</label>
-      <input type="text" name="student_number" placeholder="e.g. S20250001" required autofocus>
-      <label>Password</label>
+      <label>{{ t('auth.student_number') }}</label>
+      <input type="text" name="student_number" placeholder="S20250001" required autofocus>
+      <label>{{ t('auth.password') }}</label>
       <input type="password" name="password" required autocomplete="current-password">
-      <div class="actions-row"><button type="submit" class="btn--primary">Sign in</button></div>
+      <div class="actions-row"><button class="btn--primary">{{ t('action.login') }}</button></div>
     </form>
-    <p class="muted" style="margin-top: 16px;">
-      First time here? <a href="{{ url_for('portal_login', mode='activate') }}">Activate your account</a> ·
-      Forgot your password? Ask the registrar to reset it.
-      <a href="{{ url_for('landing') }}">← Back</a>
+    <p class="muted" style="margin-top:16px;">
+      {{ t('landing.apply_title') }}: <a href="{{ url_for('apply') }}">{{ t('action.register') }}</a> ·
+      <a href="{{ url_for('landing') }}">← {{ t('action.back') }}</a>
     </p>
-    {% endif %}
   </div>
 </body>
 </html>

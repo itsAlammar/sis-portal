@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('nav.admissions') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('adm.pending') }}</h1>
+  <div>
+    <a class="btn btn--ghost btn--small {{ 'active' if status=='pending' }}" href="{{ url_for('admissions_list', status='pending') }}">{{ t('adm.pending') }}</a>
+    <a class="btn btn--ghost btn--small {{ 'active' if status=='all' }}" href="{{ url_for('admissions_list', status='all') }}">{{ t('common.all') }}</a>
+  </div>
+</div>
+<p class="muted">{{ t('adm.approve_note') }}</p>
+<div class="card">
+{% if applications %}
+<table>
+  <thead><tr><th>{{ t('common.national_id') }}</th><th>{{ t('common.name') }}</th><th>{{ t('common.gender') }}</th><th>{{ t('common.nationality') }}</th><th>{{ t('student.major') }}</th><th>{{ t('common.status') }}</th><th>{{ t('common.actions') }}</th></tr></thead>
+  <tbody>
+  {% for a in applications %}
+    <tr>
+      <td>{{ a.national_id }}</td>
+      <td>{{ a.name_ar if locale=='ar' else a.full_name_en }}<br><span class="muted">{{ a.email }}</span></td>
+      <td>{{ t('common.male') if a.gender=='male' else t('common.female') }}</td>
+      <td>{{ t('common.saudi') if a.nationality=='Saudi' else t('common.non_saudi') }}</td>
+      <td>{{ majors[a.major_id].name(locale) if a.major_id and majors.get(a.major_id) else '—' }}</td>
+      <td><span class="stamp stamp--{{ status_kind(a.status) }}">{{ a.status }}</span></td>
+      <td>
+        {% if a.status == 'pending' %}
+        <form class="inline" method="post" action="{{ url_for('admissions_approve', application_id=a.application_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--small btn--primary">{{ t('action.approve') }}</button></form>
+        <form class="inline" method="post" action="{{ url_for('admissions_reject', application_id=a.application_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--small btn--ghost">{{ t('action.reject') }}</button></form>
+        {% elif a.student_id %}<a href="{{ url_for('students_detail', student_id=a.student_id) }}">→</a>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+</div>
+{% endblock %}

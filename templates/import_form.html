@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('action.import') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('action.import') }} — {{ entity }}</h1></div>
+<div class="card" style="max-width:520px;">
+  <p class="muted">{{ t('common.required_note') }} <a href="{{ template_url }}">{{ t('action.download_template') }}</a></p>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="file" name="csv_file" accept=".csv" required>
+    <div class="actions-row"><button class="btn--primary">{{ t('action.import') }}</button></div>
+  </form>
+</div>
+{% endblock %}

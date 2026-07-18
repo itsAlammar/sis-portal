@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('nav.financial') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('nav.financial') }}</h1></div>
+<div class="grid-3">
+  <div class="stat-card"><div class="n">{{ "%.0f"|format(total) }}</div><div class="l">{{ t('fin.amount') }} (SAR)</div></div>
+  <div class="stat-card"><div class="n">{{ "%.0f"|format(paid) }}</div><div class="l">{{ t('fin.paid') }}</div></div>
+  <div class="stat-card"><div class="n">{{ "%.0f"|format(outstanding) }}</div><div class="l">{{ t('fin.remaining') }}</div></div>
+</div>
+<div class="card" style="margin-top:16px;">
+  <h2>{{ t('fin.per_course') }}</h2>
+  <table><thead><tr><th>Type</th><th class="num">{{ t('fin.amount') }}</th></tr></thead>
+  <tbody>{% for r in by_type %}<tr><td>{{ r['fee_type'] }}</td><td class="num">{{ "%.2f"|format(r['total']) }}</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}

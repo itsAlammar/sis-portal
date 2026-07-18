@@ -1,35 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ locale }}" dir="{{ dir }}">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Staff Sign In · SIS</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ t('auth.staff_signin') }}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="landing-body">
   <div class="landing-card-solo">
-    <div class="page-eyebrow">Registrar &amp; Staff</div>
-    <h1>Staff sign in</h1>
+    <div class="topbar"><a class="lang-toggle" href="{{ url_for('set_lang', code='ar' if locale=='en' else 'en') }}">{{ t('lang.toggle') }}</a></div>
+    <div class="page-eyebrow">{{ t('landing.registrar_title') }}</div>
+    <h1>{{ t('auth.staff_signin') }}</h1>
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="flash flash--{{ category }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
+      {% for c, m in messages %}<div class="flash flash--{{ c }}">{{ m }}</div>{% endfor %}
     {% endwith %}
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="next" value="{{ next or '' }}">
-      <label>Username</label>
+      <label>{{ t('auth.username') }}</label>
       <input type="text" name="username" required autofocus autocomplete="username">
-      <label>Password</label>
+      <label>{{ t('auth.password') }}</label>
       <input type="password" name="password" required autocomplete="current-password">
-      <div class="actions-row"><button type="submit" class="btn--primary">Sign in</button></div>
+      <div class="actions-row"><button class="btn--primary">{{ t('action.login') }}</button></div>
     </form>
-    <p class="muted" style="margin-top: 16px;">
-      Teachers sign in here too and are taken to their own grading view.
-      <a href="{{ url_for('landing') }}">← Back</a>
-    </p>
+    <p class="muted" style="margin-top:16px;"><a href="{{ url_for('landing') }}">← {{ t('action.back') }}</a></p>
   </div>
 </body>
 </html>

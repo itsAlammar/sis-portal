@@ -1,33 +1,23 @@
 {% extends "layout.html" %}
-{% block title %}Add Teacher{% endblock %}
+{% block title %}{{ t('nav.teachers') }}{% endblock %}
 {% block content %}
-<div class="page-eyebrow">Faculty Records</div>
-<div class="page-header"><h1>Add teacher</h1></div>
-<div class="card" style="max-width: 560px;">
-  <form method="post">
+<div class="page-header"><h1>{{ t('action.add') }} — {{ t('nav.teachers') }}</h1></div>
+<div class="card" style="max-width:560px;">
+<form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="field-row">
-      <div><label>First name</label><input type="text" name="first_name" required></div>
-      <div><label>Last name</label><input type="text" name="last_name" required></div>
-    </div>
-    <label>Email</label><input type="email" name="email" required>
-    <div class="field-row">
-      <div><label>Phone</label><input type="text" name="phone"></div>
-      <div><label>Title</label><input type="text" name="title" placeholder="e.g. Professor"></div>
-    </div>
-    <div class="field-row">
-      <div><label>Department</label>
-        <select name="department_id">
-          <option value="">—</option>
-          {% for d in departments %}<option value="{{ d.department_id }}">{{ d.name }}</option>{% endfor %}
-        </select>
-      </div>
-      <div><label>Hire date</label><input type="date" name="hire_date" value="{{ today }}"></div>
-    </div>
-    <div class="actions-row">
-      <button type="submit" class="btn--primary">Add teacher</button>
-      <a class="btn btn--ghost" href="{{ url_for('teachers_list') }}">Cancel</a>
-    </div>
-  </form>
+  <label>{{ t('student.name_ar') }}</label><input name="name_ar" dir="rtl">
+  <div class="grid-2">
+    <div><label>{{ t('student.first_name') }}</label><input name="first_name" required></div>
+    <div><label>{{ t('student.last_name') }}</label><input name="last_name" required></div>
+  </div>
+  <label>{{ t('common.email') }}</label><input type="email" name="email" required>
+  <div class="grid-2">
+    <div><label>{{ t('common.mobile') }}</label><input name="phone"></div>
+    <div><label>{{ t('common.gender') }}</label><select name="gender"><option value="male">{{ t('common.male') }}</option><option value="female">{{ t('common.female') }}</option></select></div>
+    <div><label>Title</label><input name="title"></div>
+    <div><label>Dept</label><select name="department_id"><option value="">—</option>{% for d in departments %}<option value="{{ d['department_id'] }}">{{ d['name'] }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
+</form>
 </div>
 {% endblock %}

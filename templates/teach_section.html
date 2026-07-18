@@ -1,39 +1,19 @@
 {% extends "layout.html" %}
-{% block title %}{{ course.course_code }} sec {{ section.section_number }}{% endblock %}
+{% block title %}{{ course.course_code }}{% endblock %}
 {% block content %}
-<div class="page-eyebrow">Teacher View · {{ term.name }}</div>
-<div class="page-header">
-  <h1>{{ course.course_code }} <span class="muted" style="font-family: 'IBM Plex Sans'; font-weight: 400;">sec {{ section.section_number }} — {{ course.title }}</span></h1>
-  <a class="btn btn--ghost" href="{{ url_for('teach_dashboard') }}">← My sections</a>
-</div>
-
+<div class="page-header"><h1>{{ course.course_code }} <span class="muted">sec {{ section.section_number }}</span></h1>
+  <a class="btn btn--ghost" href="{{ url_for('teach_dashboard') }}">← {{ t('nav.my_sections') }}</a></div>
 <div class="card">
-  <h2>Roster &amp; grading</h2>
+  <h2>{{ t('grade.save') }}</h2>
   {% if roster %}
   <form method="post" action="{{ url_for('teach_submit_grades', section_id=section.section_id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <table>
-      <thead><tr><th>Student</th><th>Status</th><th>Grade</th></tr></thead>
-      <tbody>
-        {% for r in roster %}
-        <tr>
-          <td>{{ r.student_number }} — {{ r.first_name }} {{ r.last_name }}</td>
-          <td><span class="stamp stamp--{{ status_kind(r.status) }}">{{ r.status }}</span></td>
-          <td>
-            {% if r.status == 'enrolled' %}
-            <input type="text" name="grade_{{ r.student_id }}" value="{{ r.grade or '' }}" style="width: 60px;" maxlength="2">
-            {% else %}
-            <span class="stamp stamp--default">{{ r.grade or '—' }}</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
+      <thead><tr><th>{{ t('nav.students') }}</th><th>{{ t('grade.numeric') }}</th></tr></thead>
+      <tbody>{% for r in roster %}<tr><td>{{ r['student_number'] }} — {{ r['first_name'] }} {{ r['last_name'] }}</td><td>{% if r['status']=='enrolled' %}<input type="text" name="grade_{{ r['student_id'] }}" style="width:60px;" placeholder="/100">{% else %}<span class="stamp stamp--default">{{ r['grade'] or '—' }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
     </table>
-    <div class="actions-row"><button type="submit" class="btn--primary">Save grades</button></div>
+    <div class="actions-row"><button class="btn--primary">{{ t('grade.save') }}</button></div>
   </form>
-  {% else %}
-  <div class="empty-state">No students enrolled yet.</div>
-  {% endif %}
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>
 {% endblock %}

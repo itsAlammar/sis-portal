@@ -1,37 +1,32 @@
 {% extends "layout.html" %}
 {% from "_pagination.html" import pager %}
-{% block title %}Students{% endblock %}
+{% block title %}{{ t('nav.students') }}{% endblock %}
 {% block content %}
-<div class="page-eyebrow">Student Records</div>
-<div class="page-header">
-  <h1>Students</h1>
-  <div style="display: flex; gap: 10px;">
-    <a class="btn btn--ghost" href="{{ url_for('students_import') }}">Import CSV</a>
-    <a class="btn btn--primary" href="{{ url_for('students_add') }}">+ Add student</a>
+<div class="page-header"><h1>{{ t('nav.students') }}</h1>
+  <div style="display:flex; gap:8px;">
+    <a class="btn btn--ghost" href="{{ url_for('students_export') }}">{{ t('action.export') }}</a>
+    <a class="btn btn--ghost" href="{{ url_for('students_import') }}">{{ t('action.import') }}</a>
+    <a class="btn btn--primary" href="{{ url_for('students_add') }}">+ {{ t('student.add') }}</a>
   </div>
 </div>
-
 <div class="card">
-  <form method="get" class="filter-bar">
-    <input type="text" name="q" placeholder="Search name, email, or student #" value="{{ query or '' }}">
-  </form>
+  <form method="get" class="filter-bar"><input type="text" name="q" placeholder="{{ t('action.search') }}" value="{{ query or '' }}"></form>
   {% if students %}
-  <table style="margin-top: 16px;">
-    <thead><tr><th>Student #</th><th>Name</th><th>Program</th><th>Status</th></tr></thead>
+  <table style="margin-top:12px;">
+    <thead><tr><th>{{ t('auth.student_number') }}</th><th>{{ t('common.name') }}</th><th>{{ t('student.major') }}</th><th>{{ t('common.gender') }}</th><th>{{ t('common.status') }}</th></tr></thead>
     <tbody>
       {% for s in students %}
       <tr>
         <td><span class="stamp stamp--default">{{ s.student_number }}</span></td>
-        <td><a href="{{ url_for('students_detail', student_id=s.student_id) }}">{{ s.full_name }}</a></td>
-        <td>{{ s.program or '—' }}</td>
+        <td><a href="{{ url_for('students_detail', student_id=s.student_id) }}">{{ s.display_name(locale) }}</a></td>
+        <td>{{ majors[s.major_id].name(locale) if s.major_id and majors.get(s.major_id) else '—' }}</td>
+        <td>{{ t('common.male') if s.gender=='male' else t('common.female') }}</td>
         <td><span class="stamp stamp--{{ status_kind(s.status) }}">{{ s.status }}</span></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% if not query %}{{ pager(page, pages) }}{% endif %}
-  {% else %}
-  <div class="empty-state">No students found. <a href="{{ url_for('students_add') }}">Add the first one.</a></div>
-  {% endif %}
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>
 {% endblock %}

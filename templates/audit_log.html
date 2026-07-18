@@ -1,31 +1,15 @@
 {% extends "layout.html" %}
 {% from "_pagination.html" import pager %}
-{% block title %}Audit Log{% endblock %}
+{% block title %}{{ t('nav.audit') }}{% endblock %}
 {% block content %}
-<div class="page-eyebrow">Administration</div>
-<div class="page-header">
-  <h1>Audit log</h1>
-</div>
-
+<div class="page-header"><h1>{{ t('nav.audit') }}</h1></div>
 <div class="card">
   {% if entries %}
   <table>
-    <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Record</th><th>Details</th></tr></thead>
-    <tbody>
-      {% for e in entries %}
-      <tr>
-        <td class="num" style="white-space: nowrap;">{{ e.at.replace('T', ' ') }}</td>
-        <td>{{ e.actor }}</td>
-        <td><span class="stamp stamp--default">{{ e.action }}</span></td>
-        <td>{{ e.entity_type or '—' }}{% if e.entity_id %} #{{ e.entity_id }}{% endif %}</td>
-        <td class="muted">{{ e.details or '' }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
+    <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Details</th></tr></thead>
+    <tbody>{% for e in entries %}<tr><td class="num" style="white-space:nowrap;">{{ e['at'].replace('T',' ') }}</td><td>{{ e['actor'] }}</td><td><span class="stamp stamp--default">{{ e['action'] }}</span></td><td class="muted">{{ e['details'] or '' }}</td></tr>{% endfor %}</tbody>
   </table>
   {{ pager(page, pages) }}
-  {% else %}
-  <div class="empty-state">Nothing recorded yet.</div>
-  {% endif %}
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>
 {% endblock %}

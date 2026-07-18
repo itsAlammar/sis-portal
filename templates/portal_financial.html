@@ -1,0 +1,28 @@
+{% extends "portal_layout.html" %}
+{% block title %}{{ t('nav.financial') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('fin.statement') }}</h1>
+  <span class="stamp stamp--{{ 'attention' if balance>0 else 'default' }}">{{ t('student.balance') }}: {{ "%.2f"|format(balance) }} SAR</span></div>
+<div class="card">
+  <p class="muted">{{ t('fin.per_course') }}</p>
+  {% if fee_statement %}
+  <table>
+    <thead><tr><th>Type</th><th>{{ t('course.code') }}</th><th class="num">{{ t('fin.amount') }}</th><th class="num">{{ t('fin.tax') }}</th><th class="num">{{ t('fin.remaining') }}</th><th></th></tr></thead>
+    <tbody>{% for e in fee_statement %}<tr>
+      <td>{{ e.fee.fee_type }}</td>
+      <td>{{ e.course_code or '—' }}</td>
+      <td class="num">{{ "%.2f"|format(e.fee.amount) }}</td>
+      <td class="num">{{ "%.2f"|format(e.fee.tax_amount) }}</td>
+      <td class="num">{{ "%.2f"|format(e.balance) }}</td>
+      <td>{% if e.balance > 0 %}
+        <form method="post" action="{{ url_for('portal_pay', fee_id=e.fee.fee_id) }}" style="display:flex; gap:6px;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="number" name="amount_paid" step="0.01" max="{{ e.balance }}" value="{{ e.balance }}" style="width:90px;">
+          <button class="btn--small btn--primary">{{ t('fin.pay_now') }}</button>
+        </form>
+      {% else %}<span class="stamp stamp--{{ status_kind(e.fee.status) }}">{{ e.fee.status }}</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+</div>
+{% endblock %}

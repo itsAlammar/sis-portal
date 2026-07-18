@@ -1,39 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ locale }}" dir="{{ dir }}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% block title %}Student Portal{% endblock %} · SIS</title>
+<title>{% block title %}{{ t('landing.portal_title') }}{% endblock %} · {{ t('app.short') }}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <header class="portal-header">
   <div>
-    <div class="page-eyebrow">Student Portal</div>
-    <h1 style="font-size: 19px; margin: 0;">
-      {{ portal_student.full_name if portal_student else 'SIS' }}
+    <div class="page-eyebrow">{{ t('landing.portal_title') }}</div>
+    <h1 style="font-size:19px; margin:0;">
+      {{ portal_student.display_name(locale) if portal_student else t('app.short') }}
       {% if portal_student %}<span class="stamp stamp--default">{{ portal_student.student_number }}</span>{% endif %}
     </h1>
   </div>
   <nav class="portal-nav">
-    <a href="{{ url_for('portal_dashboard') }}" class="{{ 'active' if request.endpoint == 'portal_dashboard' else '' }}">Dashboard</a>
-    <a href="{{ url_for('portal_register') }}" class="{{ 'active' if request.endpoint == 'portal_register' else '' }}">Register</a>
-    <a href="{{ url_for('portal_my_courses') }}" class="{{ 'active' if request.endpoint == 'portal_my_courses' else '' }}">My courses</a>
-    <a href="{{ url_for('portal_transcript') }}" class="{{ 'active' if request.endpoint == 'portal_transcript' else '' }}">Transcript</a>
-    <a href="{{ url_for('portal_fees') }}" class="{{ 'active' if request.endpoint == 'portal_fees' else '' }}">Fees</a>
-    <form method="post" action="{{ url_for('portal_logout') }}" style="display: inline; margin: 0;">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn--ghost btn--small">Log out</button>
-    </form>
+    <a href="{{ url_for('portal_dashboard') }}" class="{{ 'active' if request.endpoint=='portal_dashboard' }}">{{ t('nav.dashboard') }}</a>
+    <a href="{{ url_for('portal_registration') }}" class="{{ 'active' if request.endpoint=='portal_registration' }}">{{ t('nav.registration') }}</a>
+    <a href="{{ url_for('portal_grades') }}" class="{{ 'active' if request.endpoint=='portal_grades' }}">{{ t('nav.my_grades') }}</a>
+    <a href="{{ url_for('portal_degree') }}" class="{{ 'active' if request.endpoint=='portal_degree' }}">{{ t('nav.degree_audit') }}</a>
+    <a href="{{ url_for('portal_financial') }}" class="{{ 'active' if request.endpoint=='portal_financial' }}">{{ t('nav.financial') }}</a>
+    <a href="{{ url_for('portal_services') }}" class="{{ 'active' if request.endpoint=='portal_services' }}">{{ t('nav.other_services') }}</a>
+    <a href="{{ url_for('portal_settings') }}" class="{{ 'active' if request.endpoint=='portal_settings' }}">{{ t('nav.settings') }}</a>
+    <a class="lang-toggle" href="{{ url_for('set_lang', code='ar' if locale=='en' else 'en') }}">{{ t('lang.toggle') }}</a>
+    <form method="post" action="{{ url_for('portal_logout') }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">{{ t('action.logout') }}</button></form>
   </nav>
 </header>
-<main class="main" style="max-width: 1080px; margin: 0 auto;">
+<main class="main" style="max-width:1080px; margin:0 auto;">
   {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-        <div class="flash flash--{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
+    {% for category, message in messages %}<div class="flash flash--{{ category }}">{{ message }}</div>{% endfor %}
   {% endwith %}
   {% block content %}{% endblock %}
 </main>

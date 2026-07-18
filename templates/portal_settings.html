@@ -1,0 +1,23 @@
+{% extends "portal_layout.html" %}
+{% block title %}{{ t('nav.settings') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('nav.settings') }}</h1></div>
+<div class="grid-2">
+  <div class="card">
+    <h2>{{ t('nav.students') }}</h2>
+    <div class="ledger-row"><span class="label">{{ t('auth.student_number') }}</span><span class="value">{{ student.student_number }}</span></div>
+    <div class="ledger-row"><span class="label">{{ t('common.national_id') }}</span><span class="value">{{ student.national_id or '—' }}</span></div>
+    <div class="ledger-row"><span class="label">{{ t('common.email') }}</span><span class="value" style="font-weight:400;">{{ student.email }}</span></div>
+    <div class="ledger-row"><span class="label">{{ t('common.mobile') }}</span><span class="value" style="font-weight:400;">{{ student.phone or '—' }}</span></div>
+  </div>
+  <div class="card">
+    <h2>{{ t('auth.password') }}</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>{{ t('auth.password') }}</label><input type="password" name="password" required minlength="8">
+      <label>{{ t('auth.confirm_password') }}</label><input type="password" name="confirm_password" required minlength="8">
+      <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

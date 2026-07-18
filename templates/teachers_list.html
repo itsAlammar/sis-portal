@@ -1,30 +1,21 @@
 {% extends "layout.html" %}
 {% from "_pagination.html" import pager %}
-{% block title %}Teachers{% endblock %}
+{% block title %}{{ t('nav.teachers') }}{% endblock %}
 {% block content %}
-<div class="page-eyebrow">Faculty Records</div>
-<div class="page-header">
-  <h1>Teachers</h1>
-  <a class="btn btn--primary" href="{{ url_for('teachers_add') }}">+ Add teacher</a>
+<div class="page-header"><h1>{{ t('nav.teachers') }}</h1>
+  <div style="display:flex; gap:8px;">
+    <a class="btn btn--ghost" href="{{ url_for('teachers_export') }}">{{ t('action.export') }}</a>
+    <a class="btn btn--ghost" href="{{ url_for('teachers_import') }}">{{ t('action.import') }}</a>
+    <a class="btn btn--primary" href="{{ url_for('teachers_add') }}">+ {{ t('action.add') }}</a>
+  </div>
 </div>
 <div class="card">
   {% if teachers %}
   <table>
-    <thead><tr><th>Employee #</th><th>Name</th><th>Title</th><th>Status</th></tr></thead>
-    <tbody>
-      {% for t in teachers %}
-      <tr>
-        <td><span class="stamp stamp--default">{{ t.employee_number }}</span></td>
-        <td>{{ t.full_name }}</td>
-        <td>{{ t.title or '—' }}</td>
-        <td><span class="stamp stamp--{{ status_kind(t.status) }}">{{ t.status }}</span></td>
-      </tr>
-      {% endfor %}
-    </tbody>
+    <thead><tr><th>#</th><th>{{ t('common.name') }}</th><th>{{ t('common.gender') }}</th><th>{{ t('common.status') }}</th></tr></thead>
+    <tbody>{% for tt in teachers %}<tr><td><span class="stamp stamp--default">{{ tt.employee_number }}</span></td><td>{{ tt.display_name(locale) }}<br><span class="muted">{{ tt.title or '' }}</span></td><td>{{ t('common.male') if tt.gender=='male' else t('common.female') }}</td><td><span class="stamp stamp--{{ status_kind(tt.status) }}">{{ tt.status }}</span></td></tr>{% endfor %}</tbody>
   </table>
   {{ pager(page, pages) }}
-  {% else %}
-  <div class="empty-state">No teachers yet. <a href="{{ url_for('teachers_add') }}">Add the first one.</a></div>
-  {% endif %}
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>
 {% endblock %}
