@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% block title %}Add Course{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Course Catalog</div>
+<div class="page-header"><h1>Add course</h1></div>
+<div class="card" style="max-width: 560px;">
+  <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field-row">
+      <div><label>Course code</label><input type="text" name="course_code" placeholder="e.g. CS101" required></div>
+      <div><label>Credit hours</label><input type="number" name="credit_hours" value="3" required></div>
+    </div>
+    <label>Title</label><input type="text" name="title" required>
+    <label>Description</label><textarea name="description" rows="3"></textarea>
+    <label>Department</label>
+    <select name="department_id">
+      <option value="">—</option>
+      {% for d in departments %}<option value="{{ d.department_id }}">{{ d.name }}</option>{% endfor %}
+    </select>
+    <div class="actions-row">
+      <button type="submit" class="btn--primary">Add course</button>
+      <a class="btn btn--ghost" href="{{ url_for('courses_list') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

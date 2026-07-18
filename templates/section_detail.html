@@ -1,0 +1,100 @@
+{% extends "layout.html" %}
+{% block title %}{{ course.course_code }} sec {{ section.section_number }}{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Class Schedule</div>
+<div class="page-header">
+  <h1>{{ course.course_code }} <span class="muted" style="font-family: 'IBM Plex Sans'; font-weight: 400;">sec {{ section.section_number }} — {{ course.title }}</span></h1>
+  <span class="stamp stamp--{{ status_kind(section.status) }}">{{ section.status }}</span>
+</div>
+
+<div class="grid-2">
+  <div>
+    <div class="card">
+      <h2>Schedule</h2>
+      <div class="ledger-row"><span class="label">Teacher</span><span class="value" style="font-weight: 400;">{{ teacher_name or 'TBD' }}</span></div>
+      <div class="ledger-row"><span class="label">Days</span><span class="value" style="font-weight: 400;">{{ section.days or '—' }}</span></div>
+      <div class="ledger-row"><span class="label">Time</span><span class="value" style="font-weight: 400;">{{ section.start_time or '—' }}{% if section.end_time %} – {{ section.end_time }}{% endif %}</span></div>
+      <div class="ledger-row"><span class="label">Room</span><span class="value" style="font-weight: 400;">{{ section.room or 'TBD' }}</span></div>
+      <div class="ledger-row"><span class="label">Enrolled</span><span class="value">{{ roster|length }}/{{ section.capacity }}</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Enroll a student</h2>
+      {% if eligible_students %}
+      <form method="post" action="{{ url_for('sections_enroll_student', section_id=section.section_id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select name="student_id" required>
+          {% for s in eligible_students %}
+          <option value="{{ s.student_id }}">{{ s.student_number }} — {{ s.full_name }}</option>
+          {% endfor %}
+        </select>
+        <div class="actions-row"><button type="submit" class="btn--primary">Enroll</button></div>
+      </form>
+      <p class="muted" style="margin-top: 8px;">If the section is full, the student is added to the waitlist automatically.</p>
+      {% else %}
+      <p class="muted">No eligible active students to add.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Waitlist</h2>
+      {% if waitlist_entries %}
+      <table>
+        <thead><tr><th>#</th><th>Student</th><th></th></tr></thead>
+        <tbody>
+          {% for w in waitlist_entries %}
+          <tr>
+            <td class="num">{{ w.position }}</td>
+            <td>{{ w.student_number }} — {{ w.first_name }} {{ w.last_name }}</td>
+            <td>
+              <form method="post" action="{{ url_for('sections_waitlist_leave', section_id=section.section_id, student_id=w.student_id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn--ghost btn--small">Remove</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="muted">No one is waitlisted.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Roster &amp; grading</h2>
+    {% if roster %}
+    <form method="post" action="{{ url_for('sections_submit_grades', section_id=section.section_id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <table>
+        <thead><tr><th>Student</th><th>Status</th><th>Grade</th><th></th></tr></thead>
+        <tbody>
+          {% for r in roster %}
+          <tr>
+            <td>{{ r.student_number }} — {{ r.first_name }} {{ r.last_name }}</td>
+            <td><span class="stamp stamp--{{ status_kind(r.status) }}">{{ r.status }}</span></td>
+            <td>
+              {% if r.status == 'enrolled' %}
+              <input type="text" name="grade_{{ r.student_id }}" value="{{ r.grade or '' }}" style="width: 60px;" maxlength="2">
+              {% else %}
+              <span class="stamp stamp--default">{{ r.grade or '—' }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if r.status == 'enrolled' %}
+              <button type="submit" formaction="{{ url_for('sections_drop_student', section_id=section.section_id, student_id=r.student_id) }}" class="btn--ghost btn--small">Drop</button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="actions-row"><button type="submit" class="btn--primary">Save grades</button></div>
+    </form>
+    {% else %}
+    <div class="empty-state">No students enrolled yet.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

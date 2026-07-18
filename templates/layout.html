@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Dashboard{% endblock %} · SIS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="eyebrow">{{ 'Teacher View' if staff_user and staff_user.role == 'teacher' else 'Office of the Registrar' }}</div>
+    <h1><a href="{{ url_for('landing') }}" style="color: inherit;">SIS</a></h1>
+    {% if current_term %}
+      <div class="term-badge">{{ current_term.name }}</div>
+    {% endif %}
+    {% if staff_user and staff_user.role == 'teacher' %}
+    <ul class="nav-list">
+      <li><a href="{{ url_for('teach_dashboard') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('teach') else '' }}">My sections</a></li>
+    </ul>
+    {% else %}
+    <ul class="nav-list">
+      <li><a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Dashboard</a></li>
+      <li><a href="{{ url_for('students_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('students') else '' }}">Students</a></li>
+      <li><a href="{{ url_for('teachers_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('teachers') else '' }}">Teachers</a></li>
+      <li><a href="{{ url_for('courses_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('courses') else '' }}">Courses</a></li>
+      <li><a href="{{ url_for('terms_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('terms') else '' }}">Terms</a></li>
+      <li><a href="{{ url_for('sections_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('sections') else '' }}">Sections</a></li>
+      {% if staff_user %}
+      <li><a href="{{ url_for('audit_log') }}" class="{{ 'active' if request.endpoint == 'audit_log' else '' }}">Audit log</a></li>
+      {% endif %}
+      {% if staff_user and staff_user.role == 'admin' %}
+      <li><a href="{{ url_for('users_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('users') else '' }}">Users</a></li>
+      {% endif %}
+    </ul>
+    {% endif %}
+    <div style="margin-top: 26px; padding-top: 16px; border-top: 1px solid rgba(245, 244, 239, 0.15);">
+      {% if staff_user %}
+      <div style="font-size: 12.5px; color: rgba(245, 244, 239, 0.6); margin-bottom: 8px;">
+        Signed in as <strong>{{ staff_user.username }}</strong> ({{ staff_user.role }})
+      </div>
+      <form method="post" action="{{ url_for('staff_logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn--ghost btn--small">Log out</button>
+      </form>
+      {% else %}
+      <a href="{{ url_for('portal_login') }}" style="font-size: 12.5px; color: rgba(245, 244, 239, 0.6);">Student Portal →</a>
+      {% endif %}
+    </div>
+  </nav>
+  <main class="main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash--{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

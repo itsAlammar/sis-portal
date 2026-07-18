@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+{% block title %}Add Term{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Academic Calendar</div>
+<div class="page-header"><h1>Add term</h1></div>
+<div class="card" style="max-width: 480px;">
+  <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Term name</label><input type="text" name="name" placeholder="e.g. Fall 2026" required>
+    <div class="field-row">
+      <div><label>Start date</label><input type="date" name="start_date" required></div>
+      <div><label>End date</label><input type="date" name="end_date" required></div>
+    </div>
+    <div class="field-row">
+      <div><label>Add deadline (optional)</label><input type="date" name="add_deadline"></div>
+      <div><label>Drop deadline (optional)</label><input type="date" name="drop_deadline"></div>
+    </div>
+    <div class="actions-row">
+      <button type="submit" class="btn--primary">Add term</button>
+      <a class="btn btn--ghost" href="{{ url_for('terms_list') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

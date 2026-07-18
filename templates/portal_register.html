@@ -1,0 +1,40 @@
+{% extends "portal_layout.html" %}
+{% block title %}Register for Classes{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Register for classes</h1></div>
+<p class="muted" style="margin-top: -14px; margin-bottom: 18px;">If a section is full, registering adds you to its waitlist automatically -- you'll be enrolled the moment a seat opens.</p>
+<div class="card">
+  {% if sections %}
+  <table>
+    <thead><tr><th>Course</th><th>Sec</th><th>Teacher</th><th>Term</th><th>Schedule</th><th class="num">Seats</th><th></th></tr></thead>
+    <tbody>
+      {% for row in sections %}
+      <tr>
+        <td>{{ row.course.course_code }} — {{ row.course.title }}</td>
+        <td>{{ row.section.section_number }}</td>
+        <td>{{ row.teacher_name }}</td>
+        <td>{{ row.term_name }}</td>
+        <td>{{ row.section.days or '—' }} {{ row.section.start_time or '' }}{% if row.section.end_time %}–{{ row.section.end_time }}{% endif %}</td>
+        <td class="num">{{ row.enrolled }}/{{ row.section.capacity }}</td>
+        <td>
+          {% if row.already_in %}
+          <span class="stamp stamp--progress">enrolled</span>
+          {% elif row.waitlisted %}
+          <span class="stamp stamp--progress">waitlisted</span>
+          {% else %}
+          <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="section_id" value="{{ row.section.section_id }}">
+            <button type="submit" class="btn--small">Register</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No open sections right now.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Administration</div>
+<div class="page-header">
+  <h1>Staff accounts</h1>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Accounts</h2>
+    {% if users %}
+    <table>
+      <thead><tr><th>Username</th><th>Role</th><th>Linked teacher</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for row in users %}
+        <tr>
+          <td>{{ row.user.username }}</td>
+          <td><span class="stamp stamp--default">{{ row.user.role }}</span></td>
+          <td>{{ row.teacher_name or '—' }}</td>
+          <td><span class="stamp stamp--{{ status_kind(row.user.status) }}">{{ row.user.status }}</span></td>
+          <td>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <form class="inline" method="post" action="{{ url_for('users_reset_password', user_id=row.user.user_id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="password" name="password" placeholder="New password" minlength="8" required style="width: 130px;">
+                <button type="submit" class="btn--ghost btn--small">Reset</button>
+              </form>
+              <form class="inline" method="post" action="{{ url_for('users_set_status', user_id=row.user.user_id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="status" value="{{ 'disabled' if row.user.status == 'active' else 'active' }}">
+                <button type="submit" class="btn--ghost btn--small">{{ 'Disable' if row.user.status == 'active' else 'Enable' }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No accounts yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Create account</h2>
+    <form method="post" action="{{ url_for('users_add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Username</label>
+      <input type="text" name="username" required>
+      <label>Password (at least 8 characters)</label>
+      <input type="password" name="password" required minlength="8" autocomplete="new-password">
+      <label>Role</label>
+      <select name="role" required>
+        <option value="registrar">Registrar — full records access</option>
+        <option value="teacher">Teacher — own sections &amp; grading only</option>
+        <option value="admin">Admin — registrar access plus user management</option>
+      </select>
+      <label>Linked teacher (required for the teacher role)</label>
+      <select name="teacher_id">
+        <option value="">—</option>
+        {% for t in teachers %}
+        <option value="{{ t.teacher_id }}">{{ t.employee_number }} — {{ t.full_name }}</option>
+        {% endfor %}
+      </select>
+      <div class="actions-row"><button type="submit" class="btn--primary">Create user</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

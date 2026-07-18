@@ -1,0 +1,50 @@
+{% extends "layout.html" %}
+{% block title %}Add Section{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Class Schedule</div>
+<div class="page-header"><h1>Add section</h1></div>
+<div class="card" style="max-width: 600px;">
+  <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field-row">
+      <div><label>Course</label>
+        <select name="course_id" required>
+          {% for c in courses %}<option value="{{ c.course_id }}">{{ c.course_code }} — {{ c.title }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><label>Term</label>
+        <select name="term_id" required>
+          {% for t in terms %}<option value="{{ t.term_id }}" {{ 'selected' if current_term and t.term_id == current_term.term_id else '' }}>{{ t.name }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div><label>Section number</label><input type="text" name="section_number" placeholder="01" required></div>
+      <div><label>Capacity</label><input type="number" name="capacity" value="30" required></div>
+    </div>
+    <div class="field-row">
+      <div><label>Teacher</label>
+        <select name="teacher_id">
+          <option value="">TBD</option>
+          {% for t in teachers %}<option value="{{ t.teacher_id }}">{{ t.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><label>Room</label><input type="text" name="room"></div>
+    </div>
+    <label>Days</label>
+    <div class="checkbox-row">
+      {% for d in ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] %}
+      <label><input type="checkbox" name="days" value="{{ d }}"> {{ d }}</label>
+      {% endfor %}
+    </div>
+    <div class="field-row">
+      <div><label>Start time</label><input type="time" name="start_time"></div>
+      <div><label>End time</label><input type="time" name="end_time"></div>
+    </div>
+    <div class="actions-row">
+      <button type="submit" class="btn--primary">Add section</button>
+      <a class="btn btn--ghost" href="{{ url_for('sections_list') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

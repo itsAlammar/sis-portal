@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block title %}Add Teacher{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Faculty Records</div>
+<div class="page-header"><h1>Add teacher</h1></div>
+<div class="card" style="max-width: 560px;">
+  <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field-row">
+      <div><label>First name</label><input type="text" name="first_name" required></div>
+      <div><label>Last name</label><input type="text" name="last_name" required></div>
+    </div>
+    <label>Email</label><input type="email" name="email" required>
+    <div class="field-row">
+      <div><label>Phone</label><input type="text" name="phone"></div>
+      <div><label>Title</label><input type="text" name="title" placeholder="e.g. Professor"></div>
+    </div>
+    <div class="field-row">
+      <div><label>Department</label>
+        <select name="department_id">
+          <option value="">—</option>
+          {% for d in departments %}<option value="{{ d.department_id }}">{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><label>Hire date</label><input type="date" name="hire_date" value="{{ today }}"></div>
+    </div>
+    <div class="actions-row">
+      <button type="submit" class="btn--primary">Add teacher</button>
+      <a class="btn btn--ghost" href="{{ url_for('teachers_list') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "portal_layout.html" %}
+{% block title %}My Courses{% endblock %}
+{% block content %}
+<div class="page-header"><h1>My courses</h1></div>
+<div class="card">
+  {% if enrollments %}
+  <table>
+    <thead><tr><th>Term</th><th>Course</th><th>Sec</th><th class="num">Cr</th><th>Status</th><th>Grade</th><th></th></tr></thead>
+    <tbody>
+      {% for e in enrollments %}
+      <tr>
+        <td>{{ e.term_name }}</td>
+        <td>{{ e.course_code }} — {{ e.title }}</td>
+        <td>{{ e.section_number }}</td>
+        <td class="num">{{ e.credit_hours }}</td>
+        <td><span class="stamp stamp--{{ status_kind(e.status) }}">{{ e.status }}</span></td>
+        <td><span class="stamp stamp--default">{{ e.grade or '—' }}</span></td>
+        <td>
+          {% if e.status == 'enrolled' %}
+          <form method="post" action="{{ url_for('portal_drop', section_id=e.section_id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn--ghost btn--small">Drop</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">You're not enrolled in anything yet. <a href="{{ url_for('portal_register') }}">Browse open sections.</a></div>
+  {% endif %}
+</div>
+
+{% if waitlist_rows %}
+<div class="card">
+  <h2>Waitlisted</h2>
+  <table>
+    <thead><tr><th>Term</th><th>Course</th><th>Sec</th><th></th></tr></thead>
+    <tbody>
+      {% for w in waitlist_rows %}
+      <tr>
+        <td>{{ w.term_name }}</td>
+        <td>{{ w.course_code }} — {{ w.title }}</td>
+        <td>{{ w.section_number }}</td>
+        <td>
+          <form method="post" action="{{ url_for('portal_waitlist_leave', section_id=w.section_id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn--ghost btn--small">Leave waitlist</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

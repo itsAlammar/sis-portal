@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% from "_pagination.html" import pager %}
+{% block title %}Teachers{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Faculty Records</div>
+<div class="page-header">
+  <h1>Teachers</h1>
+  <a class="btn btn--primary" href="{{ url_for('teachers_add') }}">+ Add teacher</a>
+</div>
+<div class="card">
+  {% if teachers %}
+  <table>
+    <thead><tr><th>Employee #</th><th>Name</th><th>Title</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for t in teachers %}
+      <tr>
+        <td><span class="stamp stamp--default">{{ t.employee_number }}</span></td>
+        <td>{{ t.full_name }}</td>
+        <td>{{ t.title or '—' }}</td>
+        <td><span class="stamp stamp--{{ status_kind(t.status) }}">{{ t.status }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {{ pager(page, pages) }}
+  {% else %}
+  <div class="empty-state">No teachers yet. <a href="{{ url_for('teachers_add') }}">Add the first one.</a></div>
+  {% endif %}
+</div>
+{% endblock %}

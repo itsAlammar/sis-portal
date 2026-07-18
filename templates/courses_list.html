@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% from "_pagination.html" import pager %}
+{% block title %}Courses{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Course Catalog</div>
+<div class="page-header">
+  <h1>Courses</h1>
+  <a class="btn btn--primary" href="{{ url_for('courses_add') }}">+ Add course</a>
+</div>
+<div class="card">
+  {% if courses %}
+  <table>
+    <thead><tr><th>Code</th><th>Title</th><th class="num">Credits</th></tr></thead>
+    <tbody>
+      {% for c in courses %}
+      <tr>
+        <td><span class="stamp stamp--default">{{ c.course_code }}</span></td>
+        <td><a href="{{ url_for('courses_detail', course_id=c.course_id) }}">{{ c.title }}</a></td>
+        <td class="num">{{ c.credit_hours }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {{ pager(page, pages) }}
+  {% else %}
+  <div class="empty-state">No courses yet. <a href="{{ url_for('courses_add') }}">Add the first one.</a></div>
+  {% endif %}
+</div>
+{% endblock %}

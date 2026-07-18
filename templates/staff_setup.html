@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>First-Run Setup · SIS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="landing-body">
+  <div class="landing-card-solo">
+    <div class="page-eyebrow">First-Run Setup</div>
+    <h1>Create the admin account</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash--{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <p class="muted">No staff accounts exist yet. Create the first
+    administrator — this page disappears once an account exists.</p>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Username</label>
+      <input type="text" name="username" required autofocus autocomplete="username">
+      <label>Password (at least 8 characters)</label>
+      <input type="password" name="password" required minlength="8" autocomplete="new-password">
+      <label>Confirm password</label>
+      <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password">
+      <div class="actions-row"><button type="submit" class="btn--primary">Create admin</button></div>
+    </form>
+  </div>
+</body>
+</html>

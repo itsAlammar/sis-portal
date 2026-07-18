@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+{% from "_pagination.html" import pager %}
+{% block title %}Students{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Student Records</div>
+<div class="page-header">
+  <h1>Students</h1>
+  <div style="display: flex; gap: 10px;">
+    <a class="btn btn--ghost" href="{{ url_for('students_import') }}">Import CSV</a>
+    <a class="btn btn--primary" href="{{ url_for('students_add') }}">+ Add student</a>
+  </div>
+</div>
+
+<div class="card">
+  <form method="get" class="filter-bar">
+    <input type="text" name="q" placeholder="Search name, email, or student #" value="{{ query or '' }}">
+  </form>
+  {% if students %}
+  <table style="margin-top: 16px;">
+    <thead><tr><th>Student #</th><th>Name</th><th>Program</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for s in students %}
+      <tr>
+        <td><span class="stamp stamp--default">{{ s.student_number }}</span></td>
+        <td><a href="{{ url_for('students_detail', student_id=s.student_id) }}">{{ s.full_name }}</a></td>
+        <td>{{ s.program or '—' }}</td>
+        <td><span class="stamp stamp--{{ status_kind(s.status) }}">{{ s.status }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not query %}{{ pager(page, pages) }}{% endif %}
+  {% else %}
+  <div class="empty-state">No students found. <a href="{{ url_for('students_add') }}">Add the first one.</a></div>
+  {% endif %}
+</div>
+{% endblock %}

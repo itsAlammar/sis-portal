@@ -1,0 +1,22 @@
+{% extends "portal_layout.html" %}
+{% block title %}My Dashboard{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Welcome back, {{ student.first_name }}</h1></div>
+<div class="grid-2">
+  <div class="card">
+    <h2>Academic standing</h2>
+    <div class="ledger-row"><span class="label">Cumulative GPA</span><span class="value">{{ "%.2f"|format(cum_gpa) if cum_gpa is not none else "N/A" }}</span></div>
+    <div class="ledger-row"><span class="label">Standing</span><span class="value">{{ standing }}</span></div>
+    <div class="ledger-row"><span class="label">Credit hours earned</span><span class="value">{{ earned_hours }}</span></div>
+  </div>
+  <div class="card">
+    <h2>Account</h2>
+    <div class="ledger-row"><span class="label">Balance due</span><span class="value">{{ "%.2f"|format(balance) }}</span></div>
+    <div class="actions-row" style="flex-direction: column; align-items: stretch;">
+      <a class="btn btn--primary" href="{{ url_for('portal_register') }}">Register for classes</a>
+      <a class="btn" href="{{ url_for('portal_fees') }}">Pay a fee</a>
+      <a class="btn" href="{{ url_for('portal_transcript') }}">View transcript</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

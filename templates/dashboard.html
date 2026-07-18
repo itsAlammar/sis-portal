@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-eyebrow">Office of the Registrar</div>
+<div class="page-header"><h1>Dashboard</h1></div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>At a glance</h2>
+    <div class="ledger-row"><span class="label">Active students</span><span class="value">{{ stats.active_students }}</span></div>
+    <div class="ledger-row"><span class="label">Teachers on staff</span><span class="value">{{ stats.teachers }}</span></div>
+    <div class="ledger-row"><span class="label">Courses in catalog</span><span class="value">{{ stats.courses }}</span></div>
+    <div class="ledger-row"><span class="label">Open sections{% if current_term %}, {{ current_term.name }}{% endif %}</span><span class="value">{{ stats.open_sections }}</span></div>
+    <div class="ledger-row"><span class="label">Active enrollments this term</span><span class="value">{{ stats.term_enrollments }}</span></div>
+    <div class="ledger-row"><span class="label">Outstanding balance, all students</span><span class="value">{{ "%.2f"|format(stats.outstanding_balance) }}</span></div>
+  </div>
+  <div class="card">
+    <h2>Quick actions</h2>
+    <p class="muted">Jump straight to the most common tasks.</p>
+    <div class="actions-row" style="flex-direction: column; align-items: stretch;">
+      <a class="btn btn--primary" href="{{ url_for('students_add') }}">Add a new student</a>
+      <a class="btn" href="{{ url_for('sections_list') }}">View sections &amp; rosters</a>
+      <a class="btn" href="{{ url_for('terms_list') }}">Manage terms</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

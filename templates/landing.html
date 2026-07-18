@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Information System</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="landing-body">
+  <div class="landing">
+    <div class="landing-eyebrow">Office of the Registrar</div>
+    <h1 class="landing-title">Student Information System</h1>
+    <div class="landing-cards">
+      <a class="landing-card" href="{{ url_for('dashboard') }}">
+        <span class="stamp stamp--default">STAFF</span>
+        <h2>Registrar &amp; Staff</h2>
+        <p>Full administrative access to every record in the system.</p>
+        <ul>
+          <li>Students, teachers, courses &amp; sections</li>
+          <li>Enrollment, grading, and GPA tools</li>
+          <li>Fee assessment and payment records</li>
+        </ul>
+        <span class="go">ENTER REGISTRAR VIEW →</span>
+      </a>
+      <a class="landing-card" href="{{ url_for('portal_login') }}">
+        <span class="stamp stamp--progress">STUDENT</span>
+        <h2>Student Portal</h2>
+        <p>Self-service access scoped to your own record only.</p>
+        <ul>
+          <li>Register or drop your own classes</li>
+          <li>View your transcript and GPA</li>
+          <li>Pay your own outstanding fees</li>
+        </ul>
+        <span class="go">SIGN IN →</span>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{% extends "portal_layout.html" %}
+{% block title %}Transcript{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Transcript</h1>
+  <a class="btn" href="{{ url_for('portal_transcript_pdf') }}">Download PDF</a>
+</div>
+<div class="card">
+  {% for term_name, rows, term_gpa in transcript_terms %}
+    <p class="section-label">{{ term_name }}</p>
+    <table style="margin-bottom: 8px;">
+      <thead><tr><th>Course</th><th class="num">Cr</th><th>Grade</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.course_code }}</td>
+          <td class="num">{{ r.credit_hours }}</td>
+          <td><span class="stamp stamp--default">{{ r.grade or '—' }}</span></td>
+          <td><span class="stamp stamp--{{ status_kind(r.status) }}">{{ r.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted" style="margin-bottom: 18px;">Term GPA: {{ "%.2f"|format(term_gpa) if term_gpa is not none else "N/A" }}</p>
+  {% else %}
+  <div class="empty-state">No enrollment history yet.</div>
+  {% endfor %}
+  <p class="muted" style="border-top: 1px solid var(--rule); padding-top: 12px;">
+    Cumulative GPA: <strong style="color: var(--ink); opacity: 1;">{{ "%.2f"|format(cum_gpa) if cum_gpa is not none else "N/A" }}</strong>
+    · {{ standing }} · {{ earned_hours }} credit hours earned
+  </p>
+</div>
+{% endblock %}

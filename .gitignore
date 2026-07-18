@@ -1,0 +1,8 @@
+sis.db
+sis.db-wal
+sis.db-shm
+backups/
+.env
+__pycache__/
+*.pyc
+.pytest_cache/

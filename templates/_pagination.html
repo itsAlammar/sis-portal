@@ -1,0 +1,13 @@
+{% macro pager(page, pages) %}
+{% if pages > 1 %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+  <span>
+    {% if page > 1 %}<a class="btn btn--ghost btn--small" href="{{ url_for_page(page - 1) }}">← Previous</a>{% endif %}
+  </span>
+  <span class="muted">Page {{ page }} of {{ pages }}</span>
+  <span>
+    {% if page < pages %}<a class="btn btn--ghost btn--small" href="{{ url_for_page(page + 1) }}">Next →</a>{% endif %}
+  </span>
+</div>
+{% endif %}
+{% endmacro %}
