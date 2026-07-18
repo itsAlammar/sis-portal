@@ -15,7 +15,7 @@ class SectionService:
 
     def add_section(
         self, course_id: int, term_id: int, section_number: str,
-        teacher_id: Optional[int] = None, room: str = "",
+        teacher_id: Optional[int] = None, gender: str = "male", room: str = "",
         days: str = "", start_time: str = "", end_time: str = "",
         capacity: int = 30,
     ) -> Section:
@@ -23,6 +23,8 @@ class SectionService:
             raise ValidationError("Section number is required.")
         if capacity <= 0:
             raise ValidationError("Capacity must be a positive number.")
+        if gender not in ("male", "female"):
+            raise ValidationError("Section gender must be male or female.")
         day_list = [d.strip().upper() for d in days.split(",") if d.strip()]
         for d in day_list:
             if d not in VALID_DAYS:
@@ -30,10 +32,10 @@ class SectionService:
         try:
             cur = self.conn.execute(
                 """INSERT INTO sections
-                   (course_id, term_id, section_number, teacher_id, room,
+                   (course_id, term_id, section_number, teacher_id, gender, room,
                     days, start_time, end_time, capacity, status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')""",
-                (course_id, term_id, section_number.strip(), teacher_id, room,
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')""",
+                (course_id, term_id, section_number.strip(), teacher_id, gender, room,
                  ",".join(day_list), start_time, end_time, capacity),
             )
         except sqlite3.IntegrityError as e:
@@ -53,10 +55,10 @@ class SectionService:
 
     def list_sections(
         self, term_id: Optional[int] = None, course_id: Optional[int] = None,
-        teacher_id: Optional[int] = None,
+        teacher_id: Optional[int] = None, gender: Optional[str] = None,
         limit: Optional[int] = None, offset: int = 0,
     ) -> List[Section]:
-        clauses, params = self._filters(term_id, course_id, teacher_id)
+        clauses, params = self._filters(term_id, course_id, teacher_id, gender)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         query = f"SELECT * FROM sections {where} ORDER BY course_id, section_number"
         if limit is not None:
@@ -67,16 +69,16 @@ class SectionService:
 
     def count_sections(
         self, term_id: Optional[int] = None, course_id: Optional[int] = None,
-        teacher_id: Optional[int] = None,
+        teacher_id: Optional[int] = None, gender: Optional[str] = None,
     ) -> int:
-        clauses, params = self._filters(term_id, course_id, teacher_id)
+        clauses, params = self._filters(term_id, course_id, teacher_id, gender)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         return self.conn.execute(
             f"SELECT COUNT(*) AS c FROM sections {where}", params
         ).fetchone()["c"]
 
     @staticmethod
-    def _filters(term_id, course_id, teacher_id):
+    def _filters(term_id, course_id, teacher_id, gender=None):
         clauses, params = [], []
         if term_id:
             clauses.append("term_id = ?")
@@ -87,11 +89,14 @@ class SectionService:
         if teacher_id:
             clauses.append("teacher_id = ?")
             params.append(teacher_id)
+        if gender:
+            clauses.append("gender = ?")
+            params.append(gender)
         return clauses, params
 
     def update_section(self, section_id: int, **fields) -> Section:
         self.get_section(section_id)
-        allowed = {"teacher_id", "room", "days", "start_time", "end_time", "capacity", "status"}
+        allowed = {"teacher_id", "gender", "room", "days", "start_time", "end_time", "capacity", "status"}
         updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
         if not updates:
             return self.get_section(section_id)

@@ -1,9 +1,19 @@
-"""Business logic for tuition/fee assessment and payments."""
+"""Financial module: fee assessment, per-course billing, registration
+fees with non-Saudi VAT, payments, waivers, and balances.
+
+Rules implemented:
+- Each course has a price; enrolling bills a per-course "Tuition" fee.
+- A registration fee (amount set by admin in app_settings) is charged
+  once per term. VAT is added to the registration fee ONLY for non-Saudi
+  students, at the admin-configured rate.
+- Payments accept partial amounts; a fee's total is amount + tax_amount.
+"""
 
 import sqlite3
 from datetime import date
 from typing import List, Optional
 
+from database import get_setting
 from exceptions import NotFoundError, PaymentError, ValidationError
 from models import Fee, Payment
 
@@ -12,23 +22,72 @@ class FeeService:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
+    # -- assessment -------------------------------------------------------
     def assess_fee(
         self, student_id: int, fee_type: str, amount: float,
-        term_id: Optional[int] = None, due_date: Optional[str] = None,
+        term_id: Optional[int] = None, course_id: Optional[int] = None,
+        tax_amount: float = 0, due_date: Optional[str] = None,
     ) -> Fee:
-        if amount <= 0:
-            raise ValidationError("Fee amount must be positive.")
+        if amount < 0:
+            raise ValidationError("Fee amount cannot be negative.")
         if not fee_type.strip():
             raise ValidationError("Fee type is required.")
-        created_at = date.today().isoformat()
         cur = self.conn.execute(
-            """INSERT INTO fees (student_id, term_id, fee_type, amount, due_date, status, created_at)
-               VALUES (?, ?, ?, ?, ?, 'pending', ?)""",
-            (student_id, term_id, fee_type.strip(), amount, due_date, created_at),
+            """INSERT INTO fees (student_id, term_id, course_id, fee_type, amount,
+                                  tax_amount, due_date, status, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)""",
+            (student_id, term_id, course_id, fee_type.strip(), amount, tax_amount,
+             due_date, date.today().isoformat()),
         )
         self.conn.commit()
         return self.get_fee(cur.lastrowid)
 
+    def bill_course(self, student_id: int, course_id: int, term_id: int,
+                    due_date: Optional[str] = None) -> Optional[Fee]:
+        """Charge a course's price as tuition. Skips if already billed for
+        this student+course+term, and skips zero-price courses."""
+        course = self.conn.execute(
+            "SELECT course_code, price FROM courses WHERE course_id = ?", (course_id,)
+        ).fetchone()
+        if course is None or (course["price"] or 0) <= 0:
+            return None
+        existing = self.conn.execute(
+            """SELECT 1 FROM fees WHERE student_id = ? AND course_id = ? AND term_id = ?
+               AND fee_type = 'Tuition' AND status != 'waived'""",
+            (student_id, course_id, term_id),
+        ).fetchone()
+        if existing:
+            return None
+        return self.assess_fee(student_id, "Tuition", course["price"],
+                               term_id=term_id, course_id=course_id, due_date=due_date)
+
+    def charge_registration_fee(self, student_id: int, term_id: int,
+                                due_date: Optional[str] = None) -> Optional[Fee]:
+        """Charge the once-per-term registration fee. VAT is added only for
+        non-Saudi students, on this fee only."""
+        already = self.conn.execute(
+            """SELECT 1 FROM fees WHERE student_id = ? AND term_id = ?
+               AND fee_type = 'Registration' AND status != 'waived'""",
+            (student_id, term_id),
+        ).fetchone()
+        if already:
+            return None
+        amount = float(get_setting(self.conn, "registration_fee", "0") or 0)
+        if amount <= 0:
+            return None
+        student = self.conn.execute(
+            "SELECT nationality FROM students WHERE student_id = ?", (student_id,)
+        ).fetchone()
+        is_saudi = (student and (student["nationality"] or "").strip().lower()
+                    in ("saudi", "سعودي", "سعودية"))
+        tax = 0.0
+        if not is_saudi:
+            vat_rate = float(get_setting(self.conn, "vat_rate", "0") or 0)
+            tax = round(amount * vat_rate / 100, 2)
+        return self.assess_fee(student_id, "Registration", amount, term_id=term_id,
+                               tax_amount=tax, due_date=due_date)
+
+    # -- reads ------------------------------------------------------------
     def get_fee(self, fee_id: int) -> Fee:
         row = self.conn.execute("SELECT * FROM fees WHERE fee_id = ?", (fee_id,)).fetchone()
         if row is None:
@@ -37,7 +96,8 @@ class FeeService:
 
     def list_fees_for_student(self, student_id: int) -> List[Fee]:
         rows = self.conn.execute(
-            "SELECT * FROM fees WHERE student_id = ? ORDER BY created_at", (student_id,)
+            "SELECT * FROM fees WHERE student_id = ? ORDER BY created_at, fee_id",
+            (student_id,),
         ).fetchall()
         return [Fee.from_row(r) for r in rows]
 
@@ -58,7 +118,7 @@ class FeeService:
         if amount_paid <= 0:
             raise PaymentError("Payment amount must be positive.")
         already_paid = self.get_total_paid(fee_id)
-        remaining = fee.amount - already_paid
+        remaining = fee.total - already_paid
         if amount_paid - remaining > 0.01:
             raise PaymentError(
                 f"Payment of {amount_paid:.2f} exceeds remaining balance of {remaining:.2f}."
@@ -70,7 +130,7 @@ class FeeService:
             (fee_id, amount_paid, payment_date, payment_method, reference_number),
         )
         new_total = already_paid + amount_paid
-        new_status = "paid" if fee.amount - new_total <= 0.01 else "partial"
+        new_status = "paid" if fee.total - new_total <= 0.01 else "partial"
         self.conn.execute("UPDATE fees SET status = ? WHERE fee_id = ?", (new_status, fee_id))
         self.conn.commit()
         row = self.conn.execute(
@@ -80,16 +140,25 @@ class FeeService:
 
     def get_student_balance(self, student_id: int) -> float:
         fees = self.list_fees_for_student(student_id)
-        total_owed = sum(f.amount for f in fees if f.status != "waived")
-        total_paid = sum(self.get_total_paid(f.fee_id) for f in fees if f.status != "waived")
-        return round(total_owed - total_paid, 2)
+        owed = sum(f.total for f in fees if f.status != "waived")
+        paid = sum(self.get_total_paid(f.fee_id) for f in fees if f.status != "waived")
+        return round(owed - paid, 2)
 
     def get_fee_statement(self, student_id: int) -> List[dict]:
+        """Itemized statement; each line notes the related course code
+        (for the per-course billing detail on the payment screen)."""
         statement = []
         for fee in self.list_fees_for_student(student_id):
             paid = self.get_total_paid(fee.fee_id)
-            balance = 0.0 if fee.status == "waived" else round(fee.amount - paid, 2)
-            statement.append({"fee": fee, "paid": paid, "balance": balance})
+            balance = 0.0 if fee.status == "waived" else round(fee.total - paid, 2)
+            course_code = None
+            if fee.course_id:
+                row = self.conn.execute(
+                    "SELECT course_code FROM courses WHERE course_id = ?", (fee.course_id,)
+                ).fetchone()
+                course_code = row["course_code"] if row else None
+            statement.append({"fee": fee, "paid": paid, "balance": balance,
+                              "course_code": course_code})
         return statement
 
     def waive_fee(self, fee_id: int, reason: str = "") -> Fee:

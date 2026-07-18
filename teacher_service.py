@@ -10,6 +10,7 @@ from models import Teacher
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 VALID_STATUSES = {"active", "inactive"}
+VALID_GENDERS = {"male", "female"}
 
 
 class TeacherService:
@@ -18,26 +19,28 @@ class TeacherService:
 
     def add_teacher(
         self, first_name: str, last_name: str, email: str,
-        phone: str = "", department_id: Optional[int] = None,
-        title: str = "", hire_date: Optional[str] = None,
+        name_ar: str = "", gender: str = "male", phone: str = "",
+        department_id: Optional[int] = None, title: str = "",
+        hire_date: Optional[str] = None,
     ) -> Teacher:
         if not first_name.strip() or not last_name.strip():
             raise ValidationError("First and last name are required.")
         if not EMAIL_RE.match(email or ""):
             raise ValidationError(f"'{email}' is not a valid email address.")
+        if gender not in VALID_GENDERS:
+            raise ValidationError("Gender must be male or female.")
 
         hire_date = hire_date or date.today().isoformat()
         employee_number = self._generate_employee_number(hire_date[:4])
         created_at = date.today().isoformat()
-
         try:
             cur = self.conn.execute(
                 """INSERT INTO teachers
-                   (employee_number, first_name, last_name, email, phone,
-                    department_id, title, hire_date, status, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)""",
-                (employee_number, first_name.strip(), last_name.strip(), email.strip(),
-                 phone, department_id, title, hire_date, created_at),
+                   (employee_number, first_name, last_name, name_ar, email, phone,
+                    gender, department_id, title, hire_date, status, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)""",
+                (employee_number, first_name.strip(), last_name.strip(), name_ar.strip(),
+                 email.strip(), phone, gender, department_id, title, hire_date, created_at),
             )
         except sqlite3.IntegrityError as e:
             raise DuplicateError(f"A teacher with email '{email}' already exists.") from e
@@ -46,11 +49,9 @@ class TeacherService:
 
     def _generate_employee_number(self, year: str) -> str:
         prefix = f"T{year}"
-        cur = self.conn.execute(
-            "SELECT COUNT(*) AS cnt FROM teachers WHERE employee_number LIKE ?",
-            (f"{prefix}%",),
-        )
-        count = cur.fetchone()["cnt"]
+        count = self.conn.execute(
+            "SELECT COUNT(*) AS c FROM teachers WHERE employee_number LIKE ?", (f"{prefix}%",),
+        ).fetchone()["c"]
         return f"{prefix}{count + 1:04d}"
 
     def get_teacher(self, teacher_id: int) -> Teacher:
@@ -62,43 +63,42 @@ class TeacherService:
         return Teacher.from_row(row)
 
     def list_teachers(
-        self, status: Optional[str] = None,
+        self, status: Optional[str] = None, gender: Optional[str] = None,
         limit: Optional[int] = None, offset: int = 0,
     ) -> List[Teacher]:
-        query = "SELECT * FROM teachers"
-        params: list = []
+        clauses, params = [], []
         if status:
-            query += " WHERE status = ?"
-            params.append(status)
-        query += " ORDER BY last_name, first_name"
+            clauses.append("status = ?"); params.append(status)
+        if gender:
+            clauses.append("gender = ?"); params.append(gender)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        query = f"SELECT * FROM teachers {where} ORDER BY last_name, first_name"
         if limit is not None:
-            query += " LIMIT ? OFFSET ?"
-            params += [limit, offset]
+            query += " LIMIT ? OFFSET ?"; params += [limit, offset]
         return [Teacher.from_row(r) for r in self.conn.execute(query, params).fetchall()]
 
     def count_teachers(self, status: Optional[str] = None) -> int:
         if status:
-            row = self.conn.execute(
+            return self.conn.execute(
                 "SELECT COUNT(*) AS c FROM teachers WHERE status = ?", (status,)
-            ).fetchone()
-        else:
-            row = self.conn.execute("SELECT COUNT(*) AS c FROM teachers").fetchone()
-        return row["c"]
+            ).fetchone()["c"]
+        return self.conn.execute("SELECT COUNT(*) AS c FROM teachers").fetchone()["c"]
 
     def search_teachers(self, query: str) -> List[Teacher]:
         like = f"%{query.strip()}%"
         rows = self.conn.execute(
             """SELECT * FROM teachers
-               WHERE first_name LIKE ? OR last_name LIKE ?
+               WHERE first_name LIKE ? OR last_name LIKE ? OR name_ar LIKE ?
                   OR email LIKE ? OR employee_number LIKE ?
                ORDER BY last_name, first_name""",
-            (like, like, like, like),
+            (like, like, like, like, like),
         ).fetchall()
         return [Teacher.from_row(r) for r in rows]
 
     def update_teacher(self, teacher_id: int, **fields) -> Teacher:
         self.get_teacher(teacher_id)
-        allowed = {"first_name", "last_name", "email", "phone", "department_id", "title"}
+        allowed = {"first_name", "last_name", "name_ar", "email", "phone",
+                   "gender", "department_id", "title"}
         updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
         if not updates:
             return self.get_teacher(teacher_id)

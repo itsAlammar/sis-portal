@@ -39,6 +39,11 @@ class EnrollmentService:
         if section.status != "open":
             raise ValidationError(f"Section is not open for enrollment (status: {section.status}).")
 
+        # Gender segregation: a student may only join a section of their own
+        # gender. (Sections are single-gender by design.)
+        if section.gender != student.gender:
+            raise ValidationError("This section is not open to the student's gender.")
+
         self._check_add_deadline(section, as_of)
 
         existing = self.conn.execute(

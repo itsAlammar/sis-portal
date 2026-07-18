@@ -1,0 +1,168 @@
+"""Backend business-rule tests for SIS v2."""
+
+import pytest
+
+from admissions_service import AdmissionsService
+from auth_service import AuthService
+from course_service import CourseService
+from enrollment_service import EnrollmentService
+from fee_service import FeeService
+from grading_service import GradingService
+from gpa_service import GPAService
+from student_service import StudentService
+from exceptions import DuplicateError, PaymentError, PrerequisiteError, ValidationError
+
+
+# -- grading & GPA (100-point -> letter -> 5.0) ---------------------------
+
+@pytest.mark.parametrize("mark,letter,points", [
+    (96, "A+", 5.00), (92, "A", 4.75), (88, "B+", 4.50), (81, "B", 4.00),
+    (77, "C+", 3.50), (72, "C", 3.00), (66, "D+", 2.50), (61, "D", 2.00), (40, "F", 1.00),
+])
+def test_mark_maps_to_letter_and_points(world, mark, letter, points):
+    g = GradingService(world["conn"])
+    EnrollmentService(world["conn"]).enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    e = g.assign_mark_by_pair(world["male"].student_id, world["sec_m"].section_id, mark)
+    assert e.grade == letter
+    assert e.grade_points == points
+    assert e.numeric_mark == mark
+
+
+def test_credit_weighted_gpa_on_5_scale(world):
+    conn = world["conn"]
+    en, g = EnrollmentService(conn), GradingService(conn)
+    gpa = GPAService(conn)
+    en.enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    g.assign_mark_by_pair(world["male"].student_id, world["sec_m"].section_id, 96)  # A+ = 5.0, 3hrs
+    assert gpa.calculate_cumulative_gpa(world["male"].student_id) == pytest.approx(5.0)
+    assert gpa.get_earned_credit_hours(world["male"].student_id) == 3
+    assert gpa.get_remaining_credit_hours(world["male"].student_id) == 117
+
+
+# -- gender segregation ---------------------------------------------------
+
+def test_student_cannot_enroll_in_other_gender_section(world):
+    en = EnrollmentService(world["conn"])
+    # female student, male section -> rejected
+    with pytest.raises(ValidationError):
+        en.enroll_student(world["female"].student_id, world["sec_m"].section_id)
+    # female student, female section -> ok
+    e = en.enroll_student(world["female"].student_id, world["sec_f"].section_id)
+    assert e.status == "enrolled"
+
+
+def test_registration_only_lists_same_gender_sections(world):
+    from section_service import SectionService
+    secs = SectionService(world["conn"]).list_sections(gender="female")
+    assert all(s.gender == "female" for s in secs)
+    assert world["sec_f"].section_id in [s.section_id for s in secs]
+    assert world["sec_m"].section_id not in [s.section_id for s in secs]
+
+
+# -- prerequisites still enforced -----------------------------------------
+
+def test_prerequisite_enforced(world):
+    en, g = EnrollmentService(world["conn"]), GradingService(world["conn"])
+    with pytest.raises(PrerequisiteError):
+        en.enroll_student(world["male"].student_id, world["sec102_m"].section_id)
+    en.enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    g.assign_mark_by_pair(world["male"].student_id, world["sec_m"].section_id, 90)
+    assert en.enroll_student(world["male"].student_id, world["sec102_m"].section_id).status == "enrolled"
+
+
+# -- national ID validation ----------------------------------------------
+
+@pytest.mark.parametrize("bad", ["123", "12345678901", "abcdefghij", "12345 6789"])
+def test_national_id_must_be_10_digits(world, bad):
+    with pytest.raises(ValidationError):
+        StudentService(world["conn"]).add_student(
+            "X", "Y", "x@y.edu", national_id=bad, gender="male")
+
+
+def test_duplicate_national_id_rejected(world):
+    with pytest.raises(DuplicateError):
+        StudentService(world["conn"]).add_student(
+            "Dup", "Licate", "dup@y.edu", national_id="1111111111", gender="male")
+
+
+# -- multiple teachers per course ----------------------------------------
+
+def test_course_has_multiple_teachers(world):
+    ts = CourseService(world["conn"]).get_teachers(world["cs101"].course_id)
+    assert len(ts) == 2
+
+
+# -- financial: registration fee, non-Saudi VAT, per-course billing -------
+
+def test_registration_fee_taxes_non_saudi_only(world):
+    conn = world["conn"]
+    fees = FeeService(conn)
+    # Saudi male: no VAT
+    fees.charge_registration_fee(world["male"].student_id, world["term"].term_id)
+    male_fee = fees.list_fees_for_student(world["male"].student_id)[0]
+    assert male_fee.fee_type == "Registration"
+    assert male_fee.tax_amount == 0
+
+    # Non-Saudi female: 15% VAT on the 500 registration fee
+    fees.charge_registration_fee(world["female"].student_id, world["term"].term_id)
+    female_fee = fees.list_fees_for_student(world["female"].student_id)[0]
+    assert female_fee.tax_amount == pytest.approx(75.0)
+    assert female_fee.total == pytest.approx(575.0)
+
+
+def test_per_course_billing_and_overpayment_blocked(world):
+    conn = world["conn"]
+    fees = FeeService(conn)
+    fee = fees.bill_course(world["male"].student_id, world["cs101"].course_id, world["term"].term_id)
+    assert fee.fee_type == "Tuition" and fee.amount == 1000
+    with pytest.raises(PaymentError):
+        fees.record_payment(fee.fee_id, 2000)
+    fees.record_payment(fee.fee_id, 1000)
+    assert fees.get_fee(fee.fee_id).status == "paid"
+
+
+def test_registration_fee_charged_once(world):
+    fees = FeeService(world["conn"])
+    fees.charge_registration_fee(world["male"].student_id, world["term"].term_id)
+    assert fees.charge_registration_fee(world["male"].student_id, world["term"].term_id) is None
+
+
+# -- admissions approval workflow -----------------------------------------
+
+def test_admission_requires_all_fields(world):
+    adm = AdmissionsService(world["conn"])
+    with pytest.raises(ValidationError):
+        adm.submit_application(
+            national_id="3333333333", first_name="A", second_name="", third_name="C",
+            last_name="D", name_ar="اسم", email="a@b.com", phone="055", date_of_birth="2005-01-01",
+            gender="male", nationality="Saudi")
+
+
+def test_admission_approval_creates_active_student(world):
+    conn = world["conn"]
+    adm = AdmissionsService(conn)
+    app = adm.submit_application(
+        national_id="3333333333", first_name="New", second_name="Mid", third_name="Third",
+        last_name="Comer", name_ar="طالب جديد كامل", email="new@b.com", phone="0550001112",
+        date_of_birth="2005-01-01", gender="male", nationality="Saudi", major_id=world["cs"].major_id)
+    assert adm.count_pending() == 1
+
+    student = adm.approve(app.application_id, reviewer="staff:admin")
+    assert student.status == "active"
+    assert student.national_id == "3333333333"
+    assert student.student_number.startswith("S")
+    assert adm.count_pending() == 0
+    # portal password defaults to national ID
+    assert AuthService(conn).authenticate_student(student.student_number, "3333333333") is not None
+
+
+def test_admission_reject(world):
+    conn = world["conn"]
+    adm = AdmissionsService(conn)
+    app = adm.submit_application(
+        national_id="4444444444", first_name="Re", second_name="Ject", third_name="Ed",
+        last_name="One", name_ar="طالب مرفوض هنا", email="rej@b.com", phone="0550001113",
+        date_of_birth="2005-01-01", gender="female", nationality="Saudi")
+    adm.reject(app.application_id, reviewer="staff:admin", note="Incomplete documents")
+    assert adm.get_application(app.application_id).status == "rejected"
+    assert adm.count_pending() == 0
