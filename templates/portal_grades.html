@@ -28,8 +28,8 @@
         <details class="nav-menu">
           <summary class="icon-link" title="{{ t('grade.breakdown') }}">ℹ️</summary>
           <div class="menu-pop">
-            <div style="display:flex; justify-content:space-between; gap:14px;"><span>{{ t('grade.coursework') }}</span><strong>{{ r['coursework_mark']|round|int if r['coursework_mark'] is not none else '—' }}</strong></div>
-            <div style="display:flex; justify-content:space-between; gap:14px;"><span>{{ t('grade.final') }}</span><strong>{{ r['final_mark']|round|int if r['final_mark'] is not none else '—' }}</strong></div>
+            <div style="display:flex; justify-content:space-between; gap:14px;"><span>{{ t('grade.coursework', max=r['coursework_max']) }}</span><strong>{{ r['coursework_mark']|round|int if r['coursework_mark'] is not none else '—' }}</strong></div>
+            <div style="display:flex; justify-content:space-between; gap:14px;"><span>{{ t('grade.final', max=100 - r['coursework_max']) }}</span><strong>{{ r['final_mark']|round|int if r['final_mark'] is not none else '—' }}</strong></div>
           </div>
         </details>
         {% endif %}

@@ -118,6 +118,12 @@ class AuthService:
         ).fetchone()
         return User.from_row(row) if row else None
 
+    def get_user_for_teacher(self, teacher_id: int) -> Optional[User]:
+        row = self.conn.execute(
+            "SELECT * FROM users WHERE teacher_id = ?", (teacher_id,)
+        ).fetchone()
+        return User.from_row(row) if row else None
+
     def list_users(self) -> List[User]:
         rows = self.conn.execute("SELECT * FROM users ORDER BY username").fetchall()
         return [User.from_row(r) for r in rows]

@@ -503,6 +503,7 @@ def students_detail(student_id):
         majors=MajorService(conn).list_majors(status=None),
         attendance_rows=AttendanceService(conn).student_summary(student_id),
         requests_rows=RequestService(conn).list_for_student(student_id),
+        payments=fees.list_payments_for_student(student_id),
     )
 
 
@@ -583,7 +584,25 @@ def teachers_edit(teacher_id):
             return redirect(url_for("teachers_list"))
         except SISError as e:
             flash(str(e), "error")
-    return render_template("teacher_edit.html", teacher=teacher)
+    return render_template("teacher_edit.html", teacher=teacher,
+                           account=AuthService(conn).get_user_for_teacher(teacher_id))
+
+
+@app.route("/teachers/<int:teacher_id>/account", methods=["POST"])
+@staff_required("admin")
+def teachers_create_account(teacher_id):
+    conn = get_db()
+    teacher = TeacherService(conn).get_teacher(teacher_id)
+    try:
+        u = AuthService(conn).create_user(
+            request.form.get("username", ""), request.form.get("password", ""), "teacher",
+            teacher_id=teacher_id,
+            full_name=teacher.name_ar or f"{teacher.first_name} {teacher.last_name}")
+        audit("user.create", "user", u.user_id, f"teacher_id={teacher_id}")
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("teachers_edit", teacher_id=teacher_id))
 
 
 @app.route("/courses/<int:course_id>/edit", methods=["GET", "POST"])
@@ -598,6 +617,7 @@ def courses_edit(course_id):
                 course_id, title=f.get("title"), title_ar=f.get("title_ar"),
                 credit_hours=int(f["credit_hours"]) if f.get("credit_hours") else None,
                 price=float(f["price"]) if f.get("price") not in (None, "") else None,
+                coursework_max=int(f["coursework_max"]) if f.get("coursework_max") not in (None, "") else None,
                 major_id=int(f["major_id"]) if f.get("major_id") else None,
             )
             audit("course.update", "course", course_id)
@@ -755,6 +775,7 @@ def courses_add():
             c = CourseService(conn).add_course(
                 course_code=f["course_code"], title=f["title"], title_ar=f.get("title_ar", ""),
                 credit_hours=int(f["credit_hours"]), price=float(f.get("price") or 0),
+                coursework_max=int(f.get("coursework_max") or 50),
                 department_id=int(f["department_id"]) if f.get("department_id") else None,
                 major_id=int(f["major_id"]) if f.get("major_id") else None,
                 description=f.get("description", ""),
@@ -1432,8 +1453,31 @@ def portal_grades():
 @portal_login_required
 def portal_attendance():
     conn = get_db()
+    sid = session["portal_student_id"]
+    excuses = {(r.section_id, r.date): r.status
+               for r in RequestService(conn).list_for_student(sid)
+               if r.kind == "absence_excuse"}
     return render_template("portal_attendance.html",
-                           rows=AttendanceService(conn).student_summary(session["portal_student_id"]))
+                           rows=AttendanceService(conn).student_summary(sid),
+                           absences=AttendanceService(conn).student_absences(sid),
+                           excuses=excuses)
+
+
+@app.route("/portal/attendance/excuse", methods=["POST"])
+@portal_login_required
+def portal_attendance_excuse():
+    conn = get_db()
+    sid = session["portal_student_id"]
+    f = request.form
+    try:
+        RequestService(conn).submit(sid, "absence_excuse", f.get("details", ""),
+                                    section_id=int(f.get("section_id", 0) or 0),
+                                    date=f.get("date", ""))
+        audit("request.submit", "student", sid, f"absence_excuse {f.get('date', '')}")
+        flash(i18n.t("att.excuse_sent", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("portal_attendance"))
 
 
 @app.route("/portal/transcript.pdf")
@@ -1458,7 +1502,38 @@ def portal_financial():
     sid = session["portal_student_id"]
     fees = FeeService(conn)
     return render_template("portal_financial.html", fee_statement=fees.get_fee_statement(sid),
-                           balance=fees.get_student_balance(sid))
+                           balance=fees.get_student_balance(sid),
+                           payments=fees.list_payments_for_student(sid))
+
+
+@app.route("/portal/receipts/<int:payment_id>.pdf")
+@portal_login_required
+def portal_receipt_pdf(payment_id):
+    conn = get_db()
+    payment = FeeService(conn).get_payment(payment_id)
+    if payment["student_id"] != session["portal_student_id"]:
+        abort(403)
+    try:
+        buf = pdf_reports.generate_receipt_pdf(conn, payment_id)
+    except RuntimeError as e:
+        flash(str(e), "error")
+        return redirect(url_for("portal_financial"))
+    return send_file(buf, mimetype="application/pdf", as_attachment=True,
+                     download_name=f"receipt_R{payment_id:06d}.pdf")
+
+
+@app.route("/receipts/<int:payment_id>.pdf")
+@staff_required("admin", "accounting", "registrar")
+def staff_receipt_pdf(payment_id):
+    conn = get_db()
+    FeeService(conn).get_payment(payment_id)
+    try:
+        buf = pdf_reports.generate_receipt_pdf(conn, payment_id)
+    except RuntimeError as e:
+        flash(str(e), "error")
+        return redirect(url_for("dashboard"))
+    return send_file(buf, mimetype="application/pdf", as_attachment=True,
+                     download_name=f"receipt_R{payment_id:06d}.pdf")
 
 
 @app.route("/portal/financial/<int:fee_id>/pay", methods=["POST"])

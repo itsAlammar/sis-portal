@@ -15,6 +15,7 @@ class CourseService:
         self, course_code: str, title: str, credit_hours: int,
         title_ar: str = "", price: float = 0, department_id: Optional[int] = None,
         major_id: Optional[int] = None, description: str = "",
+        coursework_max: int = 50,
     ) -> Course:
         if not course_code.strip() or not title.strip():
             raise ValidationError("Course code and title are required.")
@@ -22,19 +23,30 @@ class CourseService:
             raise ValidationError("Credit hours must be a positive number.")
         if price < 0:
             raise ValidationError("Price cannot be negative.")
+        coursework_max = self._check_coursework_max(coursework_max)
         try:
             cur = self.conn.execute(
                 """INSERT INTO courses
-                   (course_code, title, title_ar, credit_hours, price, department_id,
-                    major_id, description, status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')""",
+                   (course_code, title, title_ar, credit_hours, price, coursework_max,
+                    department_id, major_id, description, status)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')""",
                 (course_code.strip().upper(), title.strip(), title_ar.strip() or None,
-                 credit_hours, price, department_id, major_id, description),
+                 credit_hours, price, coursework_max, department_id, major_id, description),
             )
         except sqlite3.IntegrityError as e:
             raise DuplicateError(f"Course code '{course_code}' already exists.") from e
         self.conn.commit()
         return self.get_course(cur.lastrowid)
+
+    @staticmethod
+    def _check_coursework_max(value) -> int:
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            raise ValidationError("Coursework portion must be a whole number between 0 and 100.")
+        if not 0 <= value <= 100:
+            raise ValidationError("Coursework portion must be a whole number between 0 and 100.")
+        return value
 
     def get_course(self, course_id: int) -> Course:
         row = self.conn.execute(
@@ -72,9 +84,11 @@ class CourseService:
 
     def update_course(self, course_id: int, **fields) -> Course:
         self.get_course(course_id)
-        allowed = {"title", "title_ar", "credit_hours", "price", "department_id",
-                   "major_id", "description", "status"}
+        allowed = {"title", "title_ar", "credit_hours", "price", "coursework_max",
+                   "department_id", "major_id", "description", "status"}
         updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+        if "coursework_max" in updates:
+            updates["coursework_max"] = self._check_coursework_max(updates["coursework_max"])
         if not updates:
             return self.get_course(course_id)
         set_clause = ", ".join(f"{k} = ?" for k in updates)

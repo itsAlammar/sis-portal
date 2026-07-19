@@ -197,6 +197,7 @@ class EnrollmentService:
         self, student_id: int, term_id: Optional[int] = None
     ) -> List[sqlite3.Row]:
         query = """SELECT e.*, c.course_code, c.title, c.title_ar, c.credit_hours, c.price,
+                          c.coursework_max,
                           sec.section_number, sec.term_id, sec.gender AS section_gender
                    FROM enrollments e
                    JOIN sections sec ON sec.section_id = e.section_id

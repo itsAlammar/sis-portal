@@ -14,20 +14,36 @@ from exceptions import NotFoundError, ValidationError
 from models import ServiceRequest
 
 KINDS = {"deferral", "major_transfer", "exam_deferral", "equivalency",
-         "financial_aid", "other"}
+         "financial_aid", "absence_excuse", "other"}
 
 
 class RequestService:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
-    def submit(self, student_id: int, kind: str, details: str = "") -> ServiceRequest:
+    def submit(self, student_id: int, kind: str, details: str = "",
+               section_id: int = None, date: str = None) -> ServiceRequest:
         if kind not in KINDS:
             raise ValidationError(f"Unknown request type '{kind}'.")
+        if kind == "absence_excuse":
+            if not section_id or not date:
+                raise ValidationError("An absence excuse needs the section and the date.")
+            duplicate = self.conn.execute(
+                """SELECT 1 FROM service_requests
+                   WHERE student_id = ? AND kind = 'absence_excuse' AND section_id = ?
+                     AND date = ? AND status IN ('pending', 'approved')""",
+                (student_id, section_id, date),
+            ).fetchone()
+            if duplicate:
+                raise ValidationError("An excuse for this absence was already submitted.")
+        else:
+            section_id, date = None, None
         cur = self.conn.execute(
-            """INSERT INTO service_requests (student_id, kind, details, status, created_at)
-               VALUES (?, ?, ?, 'pending', ?)""",
-            (student_id, kind, details.strip(), datetime.now().isoformat(timespec="seconds")),
+            """INSERT INTO service_requests
+               (student_id, kind, section_id, date, details, status, created_at)
+               VALUES (?, ?, ?, ?, ?, 'pending', ?)""",
+            (student_id, kind, section_id, date, details.strip(),
+             datetime.now().isoformat(timespec="seconds")),
         )
         self.conn.commit()
         return self.get(cur.lastrowid)
@@ -48,10 +64,14 @@ class RequestService:
         return [ServiceRequest.from_row(r) for r in rows]
 
     def list_all(self, status: Optional[str] = None) -> List[sqlite3.Row]:
-        """Joined with student for the staff review screen."""
-        query = """SELECT sr.*, s.student_number, s.first_name, s.last_name, s.name_ar
+        """Joined with student (and, for absence excuses, the course) for
+        the staff review screen."""
+        query = """SELECT sr.*, s.student_number, s.first_name, s.last_name, s.name_ar,
+                          c.course_code
                    FROM service_requests sr
-                   JOIN students s ON s.student_id = sr.student_id"""
+                   JOIN students s ON s.student_id = sr.student_id
+                   LEFT JOIN sections sec ON sec.section_id = sr.section_id
+                   LEFT JOIN courses c ON c.course_id = sec.course_id"""
         params = []
         if status:
             query += " WHERE sr.status = ?"; params.append(status)
@@ -66,12 +86,21 @@ class RequestService:
     def review(self, request_id: int, decision: str, reviewer: str, note: str = "") -> ServiceRequest:
         if decision not in ("approved", "rejected"):
             raise ValidationError("Decision must be approved or rejected.")
-        self.get(request_id)
+        req = self.get(request_id)
         self.conn.execute(
             """UPDATE service_requests SET status = ?, review_note = ?,
                reviewed_by = ?, reviewed_at = ? WHERE request_id = ?""",
             (decision, note.strip() or None, reviewer,
              datetime.now().isoformat(timespec="seconds"), request_id),
         )
+        # Approving an absence excuse turns that day's record into 'excused'.
+        if decision == "approved" and req.kind == "absence_excuse" and req.section_id and req.date:
+            self.conn.execute(
+                """INSERT INTO attendance (section_id, student_id, date, status, recorded_by)
+                   VALUES (?, ?, ?, 'excused', ?)
+                   ON CONFLICT(section_id, student_id, date)
+                   DO UPDATE SET status = 'excused', recorded_by = excluded.recorded_by""",
+                (req.section_id, req.student_id, req.date, reviewer),
+            )
         self.conn.commit()
         return self.get(request_id)

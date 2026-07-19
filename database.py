@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS courses (
     title_ar       TEXT,
     credit_hours   INTEGER NOT NULL,
     price          REAL NOT NULL DEFAULT 0,
+    coursework_max INTEGER NOT NULL DEFAULT 50,   -- coursework portion of the 100 mark; final = remainder
     department_id  INTEGER REFERENCES departments(department_id),
     major_id       INTEGER REFERENCES majors(major_id),
     description    TEXT,
@@ -258,7 +259,9 @@ CREATE TABLE IF NOT EXISTS waitlist (
 CREATE TABLE IF NOT EXISTS service_requests (
     request_id  INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id  INTEGER NOT NULL REFERENCES students(student_id),
-    kind        TEXT NOT NULL,   -- deferral, major_transfer, exam_deferral, equivalency, other
+    kind        TEXT NOT NULL,   -- deferral, major_transfer, exam_deferral, equivalency, absence_excuse, other
+    section_id  INTEGER REFERENCES sections(section_id),  -- absence_excuse only
+    date        TEXT,                                     -- absence_excuse only
     details     TEXT,
     status      TEXT NOT NULL DEFAULT 'pending',  -- pending, approved, rejected
     review_note TEXT,
@@ -352,6 +355,7 @@ def _migrate(conn):
         ("teachers", "gender", "TEXT NOT NULL DEFAULT 'male'"),
         ("courses", "title_ar", "TEXT"),
         ("courses", "price", "REAL NOT NULL DEFAULT 0"),
+        ("courses", "coursework_max", "INTEGER NOT NULL DEFAULT 50"),
         ("courses", "major_id", "INTEGER"),
         ("sections", "gender", "TEXT NOT NULL DEFAULT 'male'"),
         ("terms", "name_ar", "TEXT"),
@@ -367,6 +371,8 @@ def _migrate(conn):
         ("fees", "tax_amount", "REAL NOT NULL DEFAULT 0"),
         ("fees", "waived_reason", "TEXT"),
         ("users", "full_name", "TEXT"),
+        ("service_requests", "section_id", "INTEGER"),
+        ("service_requests", "date", "TEXT"),
     ]
     for table, column, coltype in additions:
         if not _column_exists(conn, table, column):

@@ -17,4 +17,32 @@
   </table>
   {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>
+
+<div class="card" style="margin-top:16px;">
+  <h2>{{ t('att.excuses_title') }}</h2>
+  {% if absences %}
+  <table>
+    <thead><tr><th>{{ t('fin.date') }}</th><th>{{ t('course.code') }}</th><th>{{ t('common.status') }}</th><th>{{ t('att.excuse') }}</th></tr></thead>
+    <tbody>{% for a in absences %}<tr>
+      <td class="num" style="white-space:nowrap;">{{ a['date'] }}</td>
+      <td>{{ a['course_code'] }}</td>
+      <td><span class="stamp stamp--{{ 'attention' if a['status']=='absent' else 'default' }}">{{ t('att.' + a['status']) }}</span></td>
+      <td>
+        {% set ex = excuses.get((a['section_id'], a['date'])) %}
+        {% if ex %}
+        <span class="stamp stamp--{{ status_kind(ex) }}">{{ ts(ex) }}</span>
+        {% else %}
+        <form method="post" action="{{ url_for('portal_attendance_excuse') }}" style="display:flex; gap:6px; margin:0;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="section_id" value="{{ a['section_id'] }}">
+          <input type="hidden" name="date" value="{{ a['date'] }}">
+          <input name="details" placeholder="{{ t('att.excuse_reason') }}" required style="min-width:150px;">
+          <button class="btn--small btn--primary">{{ t('att.excuse_submit') }}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+</div>
 {% endblock %}

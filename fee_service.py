@@ -101,6 +101,32 @@ class FeeService:
         ).fetchall()
         return [Fee.from_row(r) for r in rows]
 
+    def get_payment(self, payment_id: int) -> sqlite3.Row:
+        """One payment joined with its fee (incl. the fee's owner) for the
+        receipt: amount, date, method, fee type/course and student_id."""
+        row = self.conn.execute(
+            """SELECT p.*, f.student_id, f.fee_type, f.amount AS fee_amount,
+                      f.tax_amount, f.course_id, f.term_id, f.status AS fee_status
+               FROM payments p JOIN fees f ON f.fee_id = p.fee_id
+               WHERE p.payment_id = ?""",
+            (payment_id,),
+        ).fetchone()
+        if row is None:
+            raise NotFoundError(f"No payment with id {payment_id}.")
+        return row
+
+    def list_payments_for_student(self, student_id: int) -> List[sqlite3.Row]:
+        return self.conn.execute(
+            """SELECT p.payment_id, p.payment_date, p.amount_paid, p.payment_method,
+                      f.fee_type, c.course_code
+               FROM payments p
+               JOIN fees f ON f.fee_id = p.fee_id
+               LEFT JOIN courses c ON c.course_id = f.course_id
+               WHERE f.student_id = ?
+               ORDER BY p.payment_date DESC, p.payment_id DESC""",
+            (student_id,),
+        ).fetchall()
+
     def get_total_paid(self, fee_id: int) -> float:
         row = self.conn.execute(
             "SELECT COALESCE(SUM(amount_paid), 0) AS total FROM payments WHERE fee_id = ?",

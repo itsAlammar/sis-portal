@@ -13,7 +13,8 @@
   <thead><tr><th>{{ t('nav.students') }}</th><th>{{ t('common.type') }}</th><th>{{ t('common.details') }}</th><th>{{ t('common.status') }}</th><th>{{ t('common.actions') }}</th></tr></thead>
   <tbody>{% for r in requests %}<tr>
     <td>{{ r['student_number'] }} — {{ r['name_ar'] if locale=='ar' and r['name_ar'] else r['first_name'] + ' ' + r['last_name'] }}</td>
-    <td>{{ tk(r['kind']) }}</td><td class="muted">{{ r['details'] or '' }}</td>
+    <td>{{ tk(r['kind']) }}</td>
+    <td class="muted">{% if r['course_code'] %}<span class="stamp stamp--default">{{ r['course_code'] }} · {{ r['date'] }}</span> {% endif %}{{ r['details'] or '' }}</td>
     <td><span class="stamp stamp--{{ status_kind(r['status']) }}">{{ ts(r['status']) }}</span></td>
     <td>{% if r['status']=='pending' %}
       <form class="inline" method="post" action="{{ url_for('requests_review', request_id=r['request_id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="decision" value="approved"><button class="btn--small btn--primary">{{ t('action.approve') }}</button></form>

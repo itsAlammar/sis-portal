@@ -22,4 +22,24 @@
   </div>
 </form>
 </div>
+
+{% if staff_user and staff_user.role == 'admin' %}
+<div class="card" style="max-width:560px; margin-top:16px;">
+  <h2>{{ t('teacher.account') }}</h2>
+  {% if account %}
+  <div class="ledger-row"><span class="label">{{ t('auth.username') }}</span><span class="value">{{ account.username }}</span></div>
+  <div class="ledger-row"><span class="label">{{ t('common.status') }}</span>
+    <span class="value"><span class="stamp stamp--{{ status_kind(account.status) }}">{{ ts(account.status) }}</span></span></div>
+  <p class="muted" style="margin-top:10px;">{{ t('teacher.account_manage') }} <a href="{{ url_for('users_list') }}">{{ t('nav.roles') }}</a></p>
+  {% else %}
+  <p class="muted">{{ t('teacher.account_none') }}</p>
+  <form method="post" action="{{ url_for('teachers_create_account', teacher_id=teacher.teacher_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>{{ t('auth.username') }}</label><input name="username" required>
+    <label>{{ t('auth.password') }}</label><input type="password" name="password" required minlength="8">
+    <div class="actions-row"><button class="btn--primary">{{ t('teacher.account_create') }}</button></div>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}

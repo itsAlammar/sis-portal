@@ -94,19 +94,34 @@ class GradingService:
     def assign_mark_by_pair(self, student_id: int, section_id: int, mark: float) -> Enrollment:
         return self.assign_mark(self._enrollment_id(student_id, section_id), mark)
 
+    def split_for_section(self, section_id: int) -> int:
+        """The coursework portion (out of 100) for the section's course;
+        the final exam is the remainder."""
+        row = self.conn.execute(
+            """SELECT c.coursework_max FROM sections s
+               JOIN courses c ON c.course_id = s.course_id
+               WHERE s.section_id = ?""",
+            (section_id,),
+        ).fetchone()
+        value = row["coursework_max"] if row else None
+        return COURSEWORK_MAX if value is None else int(value)
+
     def assign_breakdown_by_pair(
         self, student_id: int, section_id: int, coursework: float, final: float,
     ) -> Enrollment:
-        """Grade with a coursework/final split; each component is out of 50
-        and the total (out of 100) becomes the mark."""
+        """Grade with a coursework/final split. Each component's maximum
+        comes from the course (default 50/50); the total (out of 100)
+        becomes the mark."""
         eid = self._enrollment_id(student_id, section_id)
         self._lookup(eid)
+        cw_max = self.split_for_section(section_id)
+        fin_max = 100 - cw_max
         if coursework < 0 or final < 0:
             raise ValidationError("Marks cannot be negative.")
-        if coursework > COURSEWORK_MAX:
-            raise ValidationError(f"Coursework mark is out of {COURSEWORK_MAX}.")
-        if final > FINAL_MAX:
-            raise ValidationError(f"Final exam mark is out of {FINAL_MAX}.")
+        if coursework > cw_max:
+            raise ValidationError(f"Coursework mark is out of {cw_max}.")
+        if final > fin_max:
+            raise ValidationError(f"Final exam mark is out of {fin_max}.")
         total = coursework + final
         return self._apply(eid, total, self.letter_for_mark(total),
                            coursework=coursework, final=final)

@@ -309,3 +309,85 @@ def test_outstanding_invoices_listing(world):
     assert fees.count_outstanding(world["male"].student_number) == 1
     assert fees.count_outstanding("علي") == 1
     assert fees.count_outstanding("no-such-student") == 0
+
+
+# -- absence excuses --------------------------------------------------------
+
+def test_absence_excuse_approval_sets_excused(world):
+    conn = world["conn"]
+    from attendance_service import AttendanceService
+    from request_service import RequestService
+    sid, sec = world["male"].student_id, world["sec_m"].section_id
+    EnrollmentService(conn).enroll_student(sid, sec)
+    att, reqs = AttendanceService(conn), RequestService(conn)
+    att.record_bulk(sec, "2030-10-05", {sid: "absent"}, recorded_by="staff:t")
+
+    req = reqs.submit(sid, "absence_excuse", "ظرف صحي", section_id=sec, date="2030-10-05")
+    assert req.section_id == sec and req.date == "2030-10-05"
+    # Same absence can't be excused twice while pending/approved.
+    with pytest.raises(ValidationError):
+        reqs.submit(sid, "absence_excuse", "duplicate", section_id=sec, date="2030-10-05")
+    # Section and date are mandatory for this kind.
+    with pytest.raises(ValidationError):
+        reqs.submit(sid, "absence_excuse", "no date", section_id=sec)
+
+    reqs.review(req.request_id, "approved", "staff:registrar")
+    assert att.for_section_date(sec, "2030-10-05")[sid] == "excused"
+
+
+def test_absence_excuse_rejection_keeps_absent(world):
+    conn = world["conn"]
+    from attendance_service import AttendanceService
+    from request_service import RequestService
+    sid, sec = world["male"].student_id, world["sec_m"].section_id
+    EnrollmentService(conn).enroll_student(sid, sec)
+    att, reqs = AttendanceService(conn), RequestService(conn)
+    att.record_bulk(sec, "2030-10-06", {sid: "absent"}, recorded_by="staff:t")
+    req = reqs.submit(sid, "absence_excuse", "", section_id=sec, date="2030-10-06")
+    reqs.review(req.request_id, "rejected", "staff:registrar")
+    assert att.for_section_date(sec, "2030-10-06")[sid] == "absent"
+    assert [a["date"] for a in att.student_absences(sid)] == ["2030-10-06"]
+
+
+# -- flexible per-course grade split ----------------------------------------
+
+def test_flexible_grade_split_per_course(world):
+    conn = world["conn"]
+    courses, g, en = CourseService(conn), GradingService(conn), EnrollmentService(conn)
+    from section_service import SectionService
+    flex = courses.add_course("FLX101", "Flexible", 3, coursework_max=40)
+    assert flex.coursework_max == 40 and flex.final_max == 60
+    sec = SectionService(conn).add_section(flex.course_id, world["term"].term_id, "01",
+                                           gender="male", capacity=5)
+    en.enroll_student(world["male"].student_id, sec.section_id)
+
+    e = g.assign_breakdown_by_pair(world["male"].student_id, sec.section_id, 35, 55)
+    assert e.numeric_mark == 90 and e.coursework_mark == 35 and e.final_mark == 55
+    with pytest.raises(ValidationError):
+        g.assign_breakdown_by_pair(world["male"].student_id, sec.section_id, 45, 30)
+
+    # Default courses still enforce the 50/50 split.
+    en.enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    with pytest.raises(ValidationError):
+        g.assign_breakdown_by_pair(world["male"].student_id, world["sec_m"].section_id, 55, 40)
+
+    # Split is editable per course and validated.
+    assert courses.update_course(flex.course_id, coursework_max=70).coursework_max == 70
+    with pytest.raises(ValidationError):
+        courses.update_course(flex.course_id, coursework_max=101)
+
+
+# -- payment receipt PDF ----------------------------------------------------
+
+def test_receipt_pdf_generates(world):
+    conn = world["conn"]
+    import pdf_reports
+    fees = FeeService(conn)
+    fee = fees.assess_fee(world["male"].student_id, "Registration", 500)
+    payment = fees.record_payment(fee.fee_id, 200, payment_method="Cash")
+    buf = pdf_reports.generate_receipt_pdf(conn, payment.payment_id)
+    data = buf.read()
+    assert data[:5] == b"%PDF-" and len(data) > 500
+    row = fees.get_payment(payment.payment_id)
+    assert row["student_id"] == world["male"].student_id
+    assert row["amount_paid"] == 200

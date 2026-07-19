@@ -149,11 +149,16 @@ class Course:
     major_id: Optional[int]
     description: Optional[str]
     status: str
+    coursework_max: int = 50
 
     def display_title(self, locale="en") -> str:
         if locale == "ar" and self.title_ar:
             return self.title_ar
         return self.title
+
+    @property
+    def final_max(self) -> int:
+        return 100 - self.coursework_max
 
     @classmethod
     def from_row(cls, row):
@@ -161,6 +166,7 @@ class Course:
             row["course_id"], row["course_code"], row["title"], _g(row, "title_ar"),
             row["credit_hours"], _g(row, "price", 0), _g(row, "department_id"),
             _g(row, "major_id"), _g(row, "description"), _g(row, "status", "active"),
+            50 if _g(row, "coursework_max", 50) is None else _g(row, "coursework_max", 50),
         )
 
 
@@ -346,6 +352,8 @@ class ServiceRequest:
     reviewed_by: Optional[str]
     reviewed_at: Optional[str]
     created_at: str
+    section_id: Optional[int] = None
+    date: Optional[str] = None
 
     @classmethod
     def from_row(cls, row):
@@ -353,6 +361,7 @@ class ServiceRequest:
             row["request_id"], row["student_id"], row["kind"], _g(row, "details"),
             row["status"], _g(row, "review_note"), _g(row, "reviewed_by"),
             _g(row, "reviewed_at"), row["created_at"],
+            _g(row, "section_id"), _g(row, "date"),
         )
 
 

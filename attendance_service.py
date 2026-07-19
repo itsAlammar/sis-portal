@@ -72,6 +72,19 @@ class AttendanceService:
             (student_id,),
         ).fetchall()
 
+    def student_absences(self, student_id: int) -> List[sqlite3.Row]:
+        """The student's individual absence/late records, newest first —
+        the rows a portal excuse request can be raised against."""
+        return self.conn.execute(
+            """SELECT a.date, a.status, a.section_id, c.course_code, c.title, c.title_ar
+               FROM attendance a
+               JOIN sections sec ON sec.section_id = a.section_id
+               JOIN courses c ON c.course_id = sec.course_id
+               WHERE a.student_id = ? AND a.status IN ('absent', 'late')
+               ORDER BY a.date DESC""",
+            (student_id,),
+        ).fetchall()
+
     def dates_for_section(self, section_id: int) -> List[str]:
         rows = self.conn.execute(
             "SELECT DISTINCT date FROM attendance WHERE section_id = ? ORDER BY date DESC",

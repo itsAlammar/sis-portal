@@ -243,3 +243,111 @@ def test_users_page_edits_roles_with_guard(client):
     assert conn.execute("SELECT role FROM users WHERE user_id=?",
                         (admin_id,)).fetchone()["role"] == "admin"
     conn.close()
+
+
+def test_teacher_account_button_creates_linked_user(client):
+    import database
+    from database import get_connection
+
+    login(client, "admin", "admin-pass-1")
+    conn = get_connection(database.DB_PATH)
+    t = TeacherService(conn).add_teacher("Omar", "Haddad", "oh@t.edu", "عمر", gender="male")
+    conn.close()
+
+    page = client.get(f"/teachers/{t.teacher_id}/edit").get_data(as_text=True)
+    assert "Create login account" in page
+
+    client.post(f"/teachers/{t.teacher_id}/account",
+                data={"username": "o.haddad", "password": "teach-pass-99",
+                      "csrf_token": _csrf(client, f"/teachers/{t.teacher_id}/edit")})
+    conn = get_connection(database.DB_PATH)
+    row = conn.execute("SELECT role, teacher_id, full_name FROM users WHERE username='o.haddad'").fetchone()
+    conn.close()
+    assert row["role"] == "teacher" and row["teacher_id"] == t.teacher_id
+    assert row["full_name"] == "عمر"
+    # The edit page now shows the account instead of the form.
+    page = client.get(f"/teachers/{t.teacher_id}/edit").get_data(as_text=True)
+    assert "o.haddad" in page and "Create login account" not in page
+
+
+def _make_portal_student(number_suffix="01"):
+    """Registers a student with a portal password inside the client's DB."""
+    import database
+    from database import get_connection
+    from student_service import StudentService
+    conn = get_connection(database.DB_PATH)
+    s = StudentService(conn).add_student(f"Portal{number_suffix}", "Kid",
+                                         f"p{number_suffix}@x.com", gender="male")
+    AuthService(conn).set_student_password(s.student_id, "portal-pass-1")
+    conn.close()
+    return s
+
+
+def test_portal_excuse_flow_end_to_end(client):
+    import database
+    from database import get_connection
+    from term_service import TermService
+    from course_service import CourseService
+    from section_service import SectionService
+    from enrollment_service import EnrollmentService
+    from attendance_service import AttendanceService
+
+    s = _make_portal_student("11")
+    conn = get_connection(database.DB_PATH)
+    term = TermService(conn).add_term("F2032", "2032-09-01", "2032-12-20")
+    course = CourseService(conn).add_course("EXC101", "Excuses", 3)
+    sec = SectionService(conn).add_section(course.course_id, term.term_id, "01",
+                                           gender="male", capacity=5)
+    EnrollmentService(conn).enroll_student(s.student_id, sec.section_id)
+    AttendanceService(conn).record_bulk(sec.section_id, "2032-10-01",
+                                        {s.student_id: "absent"}, recorded_by="staff:t")
+    conn.close()
+
+    login(client, s.student_number, "portal-pass-1", path="/portal/login", field="student_number")
+    page = client.get("/portal/attendance").get_data(as_text=True)
+    assert "Submit excuse" in page
+    r = client.post("/portal/attendance/excuse",
+                    data={"section_id": sec.section_id, "date": "2032-10-01",
+                          "details": "sick", "csrf_token": _csrf(client, "/portal/attendance")},
+                    follow_redirects=True)
+    assert "Excuse submitted" in r.get_data(as_text=True)
+
+    # Staff sees it on the requests screen and approves it.
+    staff = client  # same test client, new session after staff login
+    login(staff, "admin", "admin-pass-1")
+    html = staff.get("/requests").get_data(as_text=True)
+    assert "Absence excuse" in html and "EXC101" in html
+    req_id = int(re.search(r"/requests/(\d+)/review", html).group(1))
+    staff.post(f"/requests/{req_id}/review",
+               data={"decision": "approved", "csrf_token": _csrf(staff, "/requests")})
+
+    conn = get_connection(database.DB_PATH)
+    status = conn.execute(
+        "SELECT status FROM attendance WHERE section_id=? AND student_id=? AND date='2032-10-01'",
+        (sec.section_id, s.student_id)).fetchone()["status"]
+    conn.close()
+    assert status == "excused"
+
+
+def test_receipt_pdf_routes_enforce_ownership(client):
+    import database
+    from database import get_connection
+    from fee_service import FeeService
+
+    owner = _make_portal_student("21")
+    other = _make_portal_student("22")
+    conn = get_connection(database.DB_PATH)
+    fee = FeeService(conn).assess_fee(owner.student_id, "Registration", 500)
+    payment = FeeService(conn).record_payment(fee.fee_id, 500, payment_method="Cash")
+    conn.close()
+
+    login(client, owner.student_number, "portal-pass-1", path="/portal/login", field="student_number")
+    r = client.get(f"/portal/receipts/{payment.payment_id}.pdf")
+    assert r.status_code == 200 and r.data[:5] == b"%PDF-"
+
+    login(client, other.student_number, "portal-pass-1", path="/portal/login", field="student_number")
+    assert client.get(f"/portal/receipts/{payment.payment_id}.pdf").status_code == 403
+
+    login(client, "admin", "admin-pass-1")
+    r = client.get(f"/receipts/{payment.payment_id}.pdf")
+    assert r.status_code == 200 and r.data[:5] == b"%PDF-"

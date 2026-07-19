@@ -30,11 +30,11 @@
             <details class="nav-menu">
               <summary class="icon-link" title="{{ t('grade.breakdown') }}">➕</summary>
               <div class="menu-pop">
-                <label style="font-size:12px;">{{ t('grade.coursework') }}</label>
-                <input type="number" name="cw_{{ r['student_id'] }}" min="0" max="50" step="0.5" style="width:90px;"
+                <label style="font-size:12px;">{{ t('grade.coursework', max=course.coursework_max) }}</label>
+                <input type="number" name="cw_{{ r['student_id'] }}" min="0" max="{{ course.coursework_max }}" step="0.5" style="width:90px;"
                        value="{{ r['coursework_mark']|round|int if r['coursework_mark'] is not none else '' }}">
-                <label style="font-size:12px;">{{ t('grade.final') }}</label>
-                <input type="number" name="fin_{{ r['student_id'] }}" min="0" max="50" step="0.5" style="width:90px;"
+                <label style="font-size:12px;">{{ t('grade.final', max=course.final_max) }}</label>
+                <input type="number" name="fin_{{ r['student_id'] }}" min="0" max="{{ course.final_max }}" step="0.5" style="width:90px;"
                        value="{{ r['final_mark']|round|int if r['final_mark'] is not none else '' }}">
               </div>
             </details>

@@ -15,6 +15,7 @@ from term_service import TermService
 from section_service import SectionService
 from enrollment_service import EnrollmentService
 from grading_service import GradingService
+from attendance_service import AttendanceService
 from fee_service import FeeService
 from request_service import RequestService
 
@@ -62,8 +63,10 @@ def seed(conn):
                                department_id=dept["CS"], major_id=cs_m.major_id)
     cs102 = courses.add_course("CS102", "Data Structures", 3, title_ar="هياكل البيانات",
                                price=1500, department_id=dept["CS"])
+    # BUS101 demos the flexible split: coursework 40 / final 60.
     bus101 = courses.add_course("BUS101", "Principles of Management", 3,
-                                title_ar="مبادئ الإدارة", price=1200, department_id=dept["BUS"])
+                                title_ar="مبادئ الإدارة", price=1200, department_id=dept["BUS"],
+                                coursework_max=40)
     math101 = courses.add_course("MATH101", "Calculus I", 4, title_ar="التفاضل والتكامل ١", price=2000)
     courses.add_prerequisite(cs102.course_id, cs101.course_id)
     # Multiple teachers per course.
@@ -130,6 +133,19 @@ def seed(conn):
         enrollments.enroll_student(s.student_id, sec.section_id)
         fees.bill_course(s.student_id, sec.course_id, spring.term_id, due_date="2026-01-30")
         grading.assign_breakdown_by_pair(s.student_id, sec.section_id, coursework, final)
+
+    # Attendance history, with one absence each so the portal's
+    # excuse-request card has something to show.
+    att = AttendanceService(conn)
+    att.record_bulk(sec_cs101_m.section_id, "2026-02-10",
+                    {created[0].student_id: "absent", created[1].student_id: "present"},
+                    recorded_by="staff:o.haddad")
+    att.record_bulk(sec_cs101_m.section_id, "2026-02-17",
+                    {created[0].student_id: "present", created[1].student_id: "late"},
+                    recorded_by="staff:o.haddad")
+    att.record_bulk(sec_cs101_f.section_id, "2026-02-10",
+                    {created[3].student_id: "present", created[4].student_id: "absent"},
+                    recorded_by="staff:s.alamri")
 
     # One student pays fully; leave the rest with a balance.
     for entry in fees.get_fee_statement(created[0].student_id):

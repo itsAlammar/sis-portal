@@ -97,7 +97,7 @@ def export_teachers(conn) -> str:
 
 
 # -- courses --------------------------------------------------------------
-COURSE_COLS = ["course_code", "title", "title_ar", "credit_hours", "price"]
+COURSE_COLS = ["course_code", "title", "title_ar", "credit_hours", "price", "coursework_max"]
 
 
 def courses_template() -> str:
@@ -117,6 +117,7 @@ def import_courses(conn, text_stream) -> Tuple[List, List[str]]:
                 course_code=row.get("course_code", ""), title=row.get("title", ""),
                 title_ar=row.get("title_ar", ""), credit_hours=int(row.get("credit_hours") or 0),
                 price=float(row.get("price") or 0),
+                coursework_max=int(row.get("coursework_max") or 50),
             ))
         except (SISError, ValueError) as e:
             errors.append(f"row {i}: {e}")
@@ -128,5 +129,5 @@ def export_courses(conn) -> str:
     w = csv.writer(out)
     w.writerow(COURSE_COLS)
     for c in CourseService(conn).list_courses():
-        w.writerow([c.course_code, c.title, c.title_ar or "", c.credit_hours, c.price])
+        w.writerow([c.course_code, c.title, c.title_ar or "", c.credit_hours, c.price, c.coursework_max])
     return out.getvalue()
