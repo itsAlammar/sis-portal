@@ -1,7 +1,7 @@
 {% extends "portal_layout.html" %}
 {% block title %}{{ t('nav.my_grades') }}{% endblock %}
 {% block content %}
-<div class="page-header"><h1>{{ t('nav.my_grades') }}</h1>
+<div class="page-header"><h1>{{ t('nav.my_grades') }} <a class="btn btn--ghost btn--small" href="{{ url_for('portal_transcript_pdf') }}">📄 {{ t('action.download_pdf') }}</a></h1>
   <span class="stamp stamp--default">{{ t('student.gpa') }}: {{ "%.2f"|format(cum_gpa) if cum_gpa is not none else 'N/A' }} / 5 — {{ standing }}</span>
 </div>
 <div class="card">

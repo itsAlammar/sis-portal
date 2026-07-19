@@ -3,7 +3,11 @@
 {% block content %}
 <div class="page-header">
   <h1>{{ student.display_name(locale) }} <span class="stamp stamp--default">{{ student.student_number }}</span></h1>
-  <span class="stamp stamp--{{ status_kind(student.status) }}">{{ ts(student.status) }}</span>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <a class="btn btn--ghost btn--small" href="{{ url_for('students_edit', student_id=student.student_id) }}">{{ t('action.edit') }}</a>
+    <a class="btn btn--ghost btn--small" href="{{ url_for('students_transcript_pdf', student_id=student.student_id) }}">📄 PDF</a>
+    <span class="stamp stamp--{{ status_kind(student.status) }}">{{ ts(student.status) }}</span>
+  </div>
 </div>
 <div class="grid-2">
   <div>

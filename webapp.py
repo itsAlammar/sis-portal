@@ -39,6 +39,8 @@ from fee_service import FeeService
 from waitlist_service import WaitlistService
 from request_service import RequestService
 from mail_service import MailService
+from attendance_service import AttendanceService
+import pdf_reports
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SIS_SECRET_KEY") or _secrets.token_hex(32)
@@ -535,6 +537,90 @@ def students_portal_reset(student_id):
     return redirect(url_for("students_detail", student_id=student_id))
 
 
+@app.route("/students/<int:student_id>/edit", methods=["GET", "POST"])
+@staff_required("admin", "registrar")
+def students_edit(student_id):
+    conn = get_db()
+    student = StudentService(conn).get_student(student_id)
+    if request.method == "POST":
+        f = request.form
+        try:
+            StudentService(conn).update_student(
+                student_id,
+                first_name=f.get("first_name"), second_name=f.get("second_name"),
+                third_name=f.get("third_name"), last_name=f.get("last_name"),
+                name_ar=f.get("name_ar"), email=f.get("email"), phone=f.get("phone"),
+                date_of_birth=f.get("date_of_birth"), gender=f.get("gender"),
+                nationality=f.get("nationality"),
+                major_id=int(f["major_id"]) if f.get("major_id") else None,
+            )
+            audit("student.update", "student", student_id)
+            flash(i18n.t("flash.saved", locale()), "success")
+            return redirect(url_for("students_detail", student_id=student_id))
+        except SISError as e:
+            flash(str(e), "error")
+    return render_template("student_edit.html", student=student,
+                           majors=MajorService(conn).list_majors(status=None))
+
+
+@app.route("/teachers/<int:teacher_id>/edit", methods=["GET", "POST"])
+@staff_required("admin", "registrar")
+def teachers_edit(teacher_id):
+    conn = get_db()
+    teacher = TeacherService(conn).get_teacher(teacher_id)
+    if request.method == "POST":
+        f = request.form
+        try:
+            TeacherService(conn).update_teacher(
+                teacher_id, first_name=f.get("first_name"), last_name=f.get("last_name"),
+                name_ar=f.get("name_ar"), email=f.get("email"), phone=f.get("phone"),
+                gender=f.get("gender"), title=f.get("title"),
+            )
+            audit("teacher.update", "teacher", teacher_id)
+            flash(i18n.t("flash.saved", locale()), "success")
+            return redirect(url_for("teachers_list"))
+        except SISError as e:
+            flash(str(e), "error")
+    return render_template("teacher_edit.html", teacher=teacher)
+
+
+@app.route("/courses/<int:course_id>/edit", methods=["GET", "POST"])
+@staff_required("admin", "registrar")
+def courses_edit(course_id):
+    conn = get_db()
+    course = CourseService(conn).get_course(course_id)
+    if request.method == "POST":
+        f = request.form
+        try:
+            CourseService(conn).update_course(
+                course_id, title=f.get("title"), title_ar=f.get("title_ar"),
+                credit_hours=int(f["credit_hours"]) if f.get("credit_hours") else None,
+                price=float(f["price"]) if f.get("price") not in (None, "") else None,
+                major_id=int(f["major_id"]) if f.get("major_id") else None,
+            )
+            audit("course.update", "course", course_id)
+            flash(i18n.t("flash.saved", locale()), "success")
+            return redirect(url_for("courses_detail", course_id=course_id))
+        except SISError as e:
+            flash(str(e), "error")
+    return render_template("course_edit.html", course=course,
+                           majors=MajorService(conn).list_majors(status=None))
+
+
+@app.route("/students/<int:student_id>/transcript.pdf")
+@staff_required("admin", "registrar")
+def students_transcript_pdf(student_id):
+    conn = get_db()
+    try:
+        buf = pdf_reports.generate_transcript_pdf(conn, student_id)
+    except RuntimeError as e:
+        flash(str(e), "error")
+        return redirect(url_for("students_detail", student_id=student_id))
+    number = StudentService(conn).get_student(student_id).student_number
+    return send_file(buf, mimetype="application/pdf", as_attachment=True,
+                     download_name=f"transcript_{number}.pdf")
+
+
 @app.route("/students/import", methods=["GET", "POST"])
 @staff_required("admin", "registrar")
 def students_import():
@@ -578,8 +664,13 @@ def students_import_template():
 def teachers_list():
     conn = get_db()
     svc = TeacherService(conn)
-    page, pages, limit, offset = paginate(svc.count_teachers())
-    return render_template("teachers_list.html", teachers=svc.list_teachers(limit=limit, offset=offset),
+    query = request.args.get("q", "").strip()
+    if query:
+        teachers, page, pages = svc.search_teachers(query), 1, 1
+    else:
+        page, pages, limit, offset = paginate(svc.count_teachers())
+        teachers = svc.list_teachers(limit=limit, offset=offset)
+    return render_template("teachers_list.html", teachers=teachers, query=query,
                            page=page, pages=pages)
 
 
@@ -1016,6 +1107,34 @@ def teach_submit_grades(section_id):
     return redirect(url_for("teach_section", section_id=section_id))
 
 
+@app.route("/teach/sections/<int:section_id>/attendance", methods=["GET", "POST"])
+@staff_required("teacher")
+def teach_attendance(section_id):
+    conn = get_db()
+    section = _own_section_or_403(section_id)
+    att = AttendanceService(conn)
+    day = request.values.get("date") or date.today().isoformat()
+    if request.method == "POST":
+        statuses = {}
+        for key, value in request.form.items():
+            if key.startswith("att_"):
+                statuses[int(key.replace("att_", ""))] = value
+        try:
+            n = att.record_bulk(section_id, day, statuses, recorded_by=_actor())
+            audit("attendance.record", "section", section_id, f"{day}: {n} students")
+            flash(i18n.t("flash.saved", locale()), "success")
+        except SISError as e:
+            flash(str(e), "error")
+        return redirect(url_for("teach_attendance", section_id=section_id, date=day))
+    roster = [r for r in SectionService(conn).get_roster(section_id) if r["status"] != "dropped"]
+    return render_template(
+        "teach_attendance.html", section=section,
+        course=CourseService(conn).get_course(section.course_id),
+        roster=roster, day=day, existing=att.for_section_date(section_id, day),
+        summary=att.section_summary(section_id), dates=att.dates_for_section(section_id),
+    )
+
+
 @app.route("/teach/sections/<int:section_id>/email", methods=["POST"])
 @staff_required("teacher")
 def teach_email_section(section_id):
@@ -1271,6 +1390,29 @@ def portal_grades():
     return render_template("portal_grades.html", blocks=blocks, cum_gpa=cum,
                            standing=gpa.get_academic_standing(cum, locale()),
                            term_options=term_options, sel_term=term_id)
+
+
+@app.route("/portal/attendance")
+@portal_login_required
+def portal_attendance():
+    conn = get_db()
+    return render_template("portal_attendance.html",
+                           rows=AttendanceService(conn).student_summary(session["portal_student_id"]))
+
+
+@app.route("/portal/transcript.pdf")
+@portal_login_required
+def portal_transcript_pdf():
+    conn = get_db()
+    sid = session["portal_student_id"]
+    try:
+        buf = pdf_reports.generate_transcript_pdf(conn, sid)
+    except RuntimeError as e:
+        flash(str(e), "error")
+        return redirect(url_for("portal_grades"))
+    number = StudentService(conn).get_student(sid).student_number
+    return send_file(buf, mimetype="application/pdf", as_attachment=True,
+                     download_name=f"transcript_{number}.pdf")
 
 
 @app.route("/portal/financial")

@@ -82,13 +82,15 @@ def generate_transcript_pdf(conn: sqlite3.Connection, student_id: int) -> io.Byt
         term = terms_svc.get_term(term_id)
         story.append(Paragraph(term.name, term_heading))
 
-        table_data = [["Course", "Title", "Cr", "Grade", "Status"]]
+        table_data = [["Course", "Title", "Cr", "Mark/100", "Grade", "Status"]]
         for r in rows:
+            mark = r["numeric_mark"]
             table_data.append([
-                r["course_code"], r["title"][:38], str(r["credit_hours"]),
+                r["course_code"], r["title"][:34], str(r["credit_hours"]),
+                (f"{mark:.0f}" if mark is not None else "-"),
                 r["grade"] or "-", r["status"],
             ])
-        table = Table(table_data, colWidths=[0.8*inch, 3.0*inch, 0.4*inch, 0.7*inch, 1.0*inch])
+        table = Table(table_data, colWidths=[0.8*inch, 2.5*inch, 0.4*inch, 0.8*inch, 0.6*inch, 0.9*inch])
         table.setStyle(TableStyle([
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 9.5),
@@ -101,11 +103,11 @@ def generate_transcript_pdf(conn: sqlite3.Connection, student_id: int) -> io.Byt
         story.append(table)
 
         term_gpa = gpa_service.calculate_term_gpa(student_id, term_id)
-        gpa_str = f"{term_gpa:.2f}" if term_gpa is not None else "N/A"
+        gpa_str = f"{term_gpa:.2f} / 5" if term_gpa is not None else "N/A"
         story.append(Paragraph(f"Term GPA: {gpa_str}", small_muted))
 
     cum_gpa = gpa_service.calculate_cumulative_gpa(student_id)
-    cum_gpa_str = f"{cum_gpa:.2f}" if cum_gpa is not None else "N/A"
+    cum_gpa_str = f"{cum_gpa:.2f} / 5" if cum_gpa is not None else "N/A"
     standing = gpa_service.get_academic_standing(cum_gpa)
     earned = gpa_service.get_earned_credit_hours(student_id)
 

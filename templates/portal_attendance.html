@@ -1,0 +1,20 @@
+{% extends "portal_layout.html" %}
+{% block title %}{{ t('att.title') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('att.title') }}</h1></div>
+<div class="card">
+  {% if rows %}
+  <table>
+    <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('course.title') }}</th><th class="num">{{ t('att.sessions') }}</th><th class="num">{{ t('att.absent') }}</th><th class="num">{{ t('att.late') }}</th><th class="num">{{ t('att.excused') }}</th></tr></thead>
+    <tbody>{% for r in rows %}<tr>
+      <td>{{ r['course_code'] }}</td>
+      <td>{{ r['title_ar'] if locale=='ar' and r['title_ar'] else r['title'] }}</td>
+      <td class="num">{{ r['total'] }}</td>
+      <td class="num"><span class="stamp stamp--{{ 'attention' if r['absent'] else 'ok' }}">{{ r['absent'] }}</span></td>
+      <td class="num">{{ r['late'] }}</td>
+      <td class="num">{{ r['excused'] }}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+</div>
+{% endblock %}

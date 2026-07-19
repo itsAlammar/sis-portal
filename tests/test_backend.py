@@ -230,3 +230,33 @@ def test_section_broadcast_email_logged_per_student(world):
         "SELECT COUNT(*) c FROM email_log WHERE kind = 'section_email'"
     ).fetchone()["c"]
     assert logged == len(rows) == 1
+
+
+def test_attendance_record_and_summaries(world):
+    conn = world["conn"]
+    from attendance_service import AttendanceService
+    EnrollmentService(conn).enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    att = AttendanceService(conn)
+    att.record_bulk(world["sec_m"].section_id, "2030-10-01",
+                    {world["male"].student_id: "absent"}, recorded_by="staff:t")
+    att.record_bulk(world["sec_m"].section_id, "2030-10-02",
+                    {world["male"].student_id: "present"}, recorded_by="staff:t")
+    # overwrite same date
+    att.record_bulk(world["sec_m"].section_id, "2030-10-01",
+                    {world["male"].student_id: "excused"}, recorded_by="staff:t")
+    summary = att.section_summary(world["sec_m"].section_id)[world["male"].student_id]
+    assert summary.get("excused") == 1 and summary.get("present") == 1
+    assert "absent" not in summary
+    rows = att.student_summary(world["male"].student_id)
+    assert rows[0]["total"] == 2 and rows[0]["excused"] == 1
+
+
+def test_pdf_transcript_generates(world):
+    conn = world["conn"]
+    import pdf_reports
+    EnrollmentService(conn).enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    GradingService(conn).assign_breakdown_by_pair(
+        world["male"].student_id, world["sec_m"].section_id, 45, 45)
+    buf = pdf_reports.generate_transcript_pdf(conn, world["male"].student_id)
+    data = buf.read()
+    assert data[:5] == b"%PDF-" and len(data) > 800

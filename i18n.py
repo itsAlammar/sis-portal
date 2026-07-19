@@ -154,6 +154,18 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "mail.message": {"en": "Message", "ar": "نص الرسالة"},
     "mail.broadcast_done": {"en": "Message queued for {n} student(s).",
                             "ar": "أُرسلت الرسالة إلى {n} من الطلاب."},
+    "att.title": {"en": "Attendance", "ar": "الحضور والغياب"},
+    "att.take": {"en": "Take attendance", "ar": "التحضير"},
+    "att.date": {"en": "Date", "ar": "التاريخ"},
+    "att.present": {"en": "Present", "ar": "حاضر"},
+    "att.absent": {"en": "Absent", "ar": "غائب"},
+    "att.late": {"en": "Late", "ar": "متأخر"},
+    "att.excused": {"en": "Excused", "ar": "بعذر"},
+    "att.absences": {"en": "Absences", "ar": "الغيابات"},
+    "att.sessions": {"en": "Sessions", "ar": "المحاضرات"},
+    "action.download_pdf": {"en": "Download PDF transcript", "ar": "تحميل السجل الأكاديمي PDF"},
+    "search.by_number_or_name": {"en": "Search by number or name",
+                                 "ar": "ابحث بالرقم الجامعي أو الاسم"},
 
     # -- record statuses --------------------------------------------------
     "status.active": {"en": "Active", "ar": "نشط"},

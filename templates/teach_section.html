@@ -2,7 +2,8 @@
 {% block title %}{{ course.course_code }}{% endblock %}
 {% block content %}
 <div class="page-header"><h1>{{ course.course_code }} <span class="muted">sec {{ section.section_number }}</span></h1>
-  <a class="btn btn--ghost" href="{{ url_for('teach_dashboard') }}">← {{ t('nav.my_sections') }}</a></div>
+  <div style="display:flex; gap:8px;"><a class="btn btn--primary btn--small" href="{{ url_for('teach_attendance', section_id=section.section_id) }}">🗓️ {{ t('att.take') }}</a>
+  <a class="btn btn--ghost" href="{{ url_for('teach_dashboard') }}">← {{ t('nav.my_sections') }}</a></div></div>
 
 {% if grades_deadline %}
   {% if locked %}

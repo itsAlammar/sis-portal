@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('att.title') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('att.take') }} — {{ course.course_code }} <span class="muted">sec {{ section.section_number }}</span></h1>
+  <a class="btn btn--ghost" href="{{ url_for('teach_section', section_id=section.section_id) }}">← {{ t('grade.save') }}</a></div>
+
+<div class="grid-2">
+  <div class="card">
+    <form method="get" class="filter-bar" style="display:flex; gap:8px; align-items:center;">
+      <label style="margin:0;">{{ t('att.date') }}</label>
+      <input type="date" name="date" value="{{ day }}" onchange="this.form.submit()">
+      {% if dates %}<span class="muted">({{ dates|length }} {{ t('att.sessions') }})</span>{% endif %}
+    </form>
+    {% if roster %}
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="date" value="{{ day }}">
+      <table style="margin-top:10px;">
+        <thead><tr><th>{{ t('nav.students') }}</th><th>{{ t('common.status') }}</th></tr></thead>
+        <tbody>{% for r in roster %}<tr>
+          <td>{{ r['student_number'] }} — {{ r['first_name'] }} {{ r['last_name'] }}</td>
+          <td>
+            <select name="att_{{ r['student_id'] }}">
+              {% for st in ['present','absent','late','excused'] %}
+              <option value="{{ st }}" {{ 'selected' if existing.get(r['student_id'])==st }}>{{ t('att.' + st) }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>{% endfor %}</tbody>
+      </table>
+      <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
+    </form>
+    {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+  </div>
+
+  <div class="card">
+    <h2>{{ t('att.absences') }}</h2>
+    {% if summary %}
+    <table>
+      <thead><tr><th>{{ t('nav.students') }}</th><th class="num">{{ t('att.absent') }}</th><th class="num">{{ t('att.late') }}</th><th class="num">{{ t('att.excused') }}</th></tr></thead>
+      <tbody>{% for r in roster %}{% set s = summary.get(r['student_id'], {}) %}<tr>
+        <td>{{ r['first_name'] }} {{ r['last_name'] }}</td>
+        <td class="num">{{ s.get('absent', 0) }}</td>
+        <td class="num">{{ s.get('late', 0) }}</td>
+        <td class="num">{{ s.get('excused', 0) }}</td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

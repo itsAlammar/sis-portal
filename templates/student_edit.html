@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('action.edit') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('action.edit') }} — {{ student.display_name(locale) }}</h1></div>
+<div class="card" style="max-width:640px;">
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>{{ t('student.name_ar') }}</label><input name="name_ar" dir="rtl" value="{{ student.name_ar or '' }}">
+  <div class="grid-2">
+    <div><label>{{ t('student.first_name') }}</label><input name="first_name" value="{{ student.first_name }}" required></div>
+    <div><label>{{ t('student.second_name') }}</label><input name="second_name" value="{{ student.second_name or '' }}"></div>
+    <div><label>{{ t('student.third_name') }}</label><input name="third_name" value="{{ student.third_name or '' }}"></div>
+    <div><label>{{ t('student.last_name') }}</label><input name="last_name" value="{{ student.last_name }}" required></div>
+  </div>
+  <label>{{ t('common.email') }}</label><input type="email" name="email" value="{{ student.email }}" required>
+  <label>{{ t('common.mobile') }}</label><input name="phone" value="{{ student.phone or '' }}">
+  <div class="grid-2">
+    <div><label>{{ t('common.date_of_birth') }}</label><input type="date" name="date_of_birth" value="{{ student.date_of_birth or '' }}"></div>
+    <div><label>{{ t('common.gender') }}</label><select name="gender"><option value="male" {{ 'selected' if student.gender=='male' }}>{{ t('common.male') }}</option><option value="female" {{ 'selected' if student.gender=='female' }}>{{ t('common.female') }}</option></select></div>
+    <div><label>{{ t('common.nationality') }}</label><select name="nationality"><option value="Saudi" {{ 'selected' if student.is_saudi }}>{{ t('common.saudi') }}</option><option value="Non-Saudi" {{ 'selected' if not student.is_saudi }}>{{ t('common.non_saudi') }}</option></select></div>
+    <div><label>{{ t('student.major') }}</label><select name="major_id"><option value="">—</option>{% for m in majors %}<option value="{{ m.major_id }}" {{ 'selected' if student.major_id==m.major_id }}>{{ m.name(locale) }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="actions-row">
+    <button class="btn--primary">{{ t('action.save') }}</button>
+    <a class="btn btn--ghost" href="{{ url_for('students_detail', student_id=student.student_id) }}">{{ t('action.cancel') }}</a>
+  </div>
+</form>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('action.edit') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('action.edit') }} — {{ teacher.display_name(locale) }}</h1></div>
+<div class="card" style="max-width:560px;">
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>{{ t('student.name_ar') }}</label><input name="name_ar" dir="rtl" value="{{ teacher.name_ar or '' }}">
+  <div class="grid-2">
+    <div><label>{{ t('student.first_name') }}</label><input name="first_name" value="{{ teacher.first_name }}" required></div>
+    <div><label>{{ t('student.last_name') }}</label><input name="last_name" value="{{ teacher.last_name }}" required></div>
+  </div>
+  <label>{{ t('common.email') }}</label><input type="email" name="email" value="{{ teacher.email }}" required>
+  <div class="grid-2">
+    <div><label>{{ t('common.mobile') }}</label><input name="phone" value="{{ teacher.phone or '' }}"></div>
+    <div><label>{{ t('common.gender') }}</label><select name="gender"><option value="male" {{ 'selected' if teacher.gender=='male' }}>{{ t('common.male') }}</option><option value="female" {{ 'selected' if teacher.gender=='female' }}>{{ t('common.female') }}</option></select></div>
+    <div><label>{{ t('teacher.title') }}</label><input name="title" value="{{ teacher.title or '' }}"></div>
+  </div>
+  <div class="actions-row">
+    <button class="btn--primary">{{ t('action.save') }}</button>
+    <a class="btn btn--ghost" href="{{ url_for('teachers_list') }}">{{ t('action.cancel') }}</a>
+  </div>
+</form>
+</div>
+{% endblock %}

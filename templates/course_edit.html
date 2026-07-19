@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('action.edit') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('action.edit') }} — {{ course.course_code }}</h1></div>
+<div class="card" style="max-width:560px;">
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>{{ t('course.title') }} (EN)</label><input name="title" value="{{ course.title }}" required>
+  <label>{{ t('course.title') }} (AR)</label><input name="title_ar" dir="rtl" value="{{ course.title_ar or '' }}">
+  <div class="grid-2">
+    <div><label>{{ t('course.credits') }}</label><input type="number" name="credit_hours" min="1" value="{{ course.credit_hours }}"></div>
+    <div><label>{{ t('course.price') }} (SAR)</label><input type="number" name="price" min="0" step="0.01" value="{{ course.price }}"></div>
+  </div>
+  <label>{{ t('student.major') }}</label>
+  <select name="major_id"><option value="">—</option>{% for m in majors %}<option value="{{ m.major_id }}" {{ 'selected' if course.major_id==m.major_id }}>{{ m.name(locale) }}</option>{% endfor %}</select>
+  <div class="actions-row">
+    <button class="btn--primary">{{ t('action.save') }}</button>
+    <a class="btn btn--ghost" href="{{ url_for('courses_detail', course_id=course.course_id) }}">{{ t('action.cancel') }}</a>
+  </div>
+</form>
+</div>
+{% endblock %}
