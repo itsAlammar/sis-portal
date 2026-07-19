@@ -21,7 +21,7 @@
     <a href="{{ url_for('portal_grades') }}" class="{{ 'active' if request.endpoint=='portal_grades' }}">{{ t('nav.my_grades') }}</a>
     <a href="{{ url_for('portal_financial') }}" class="{{ 'active' if request.endpoint=='portal_financial' }}">{{ t('nav.financial') }}</a>
     <a href="{{ url_for('portal_services') }}" class="{{ 'active' if request.endpoint=='portal_services' }}">{{ t('nav.other_services') }}</a>
-    <a href="{{ url_for('lms_placeholder') }}" class="icon-link" title="{{ t('nav.lms_soon') }}">🎓</a>
+    <a href="{{ url_for('lms_placeholder') }}" class="lms-chip" title="{{ t('nav.lms_soon') }}">🎓 {{ t('nav.lms') }}</a>
     <details class="nav-menu">
       <summary class="icon-link" title="{{ t('menu.account') }}">⚙️</summary>
       <div class="menu-pop">

@@ -122,11 +122,13 @@ def seed(conn):
         (created[0], sec_cs101_m), (created[1], sec_cs101_m), (created[2], sec_bus101_m),
         (created[3], sec_cs101_f), (created[4], sec_cs101_f), (created[5], sec_bus101_f),
     ]
-    marks = [96, 88, 73, 91, 84, 67]
-    for (s, sec), mark in zip(enroll_plan, marks):
+    # Graded with a coursework/final breakdown so the ℹ️ detail icon shows
+    # in the student portal (total = coursework + final).
+    marks = [(58, 38), (52, 36), (45, 28), (55, 36), (50, 34), (40, 27)]
+    for (s, sec), (coursework, final) in zip(enroll_plan, marks):
         enrollments.enroll_student(s.student_id, sec.section_id)
         fees.bill_course(s.student_id, sec.course_id, spring.term_id, due_date="2026-01-30")
-        grading.assign_mark_by_pair(s.student_id, sec.section_id, mark)
+        grading.assign_breakdown_by_pair(s.student_id, sec.section_id, coursework, final)
 
     # One student pays fully; leave the rest with a balance.
     for entry in fees.get_fee_statement(created[0].student_id):

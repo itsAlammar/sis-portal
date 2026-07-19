@@ -309,3 +309,9 @@ form.inline { display: inline; }
 /* ---------- status colors: green for active/ok, red for attention ---------- */
 .stamp--ok { color: #1a7a3a; border-color: #1a7a3a; background: rgba(26,122,58,0.08); }
 .stamp--attention { color: #b3261e; border-color: #b3261e; background: rgba(179,38,30,0.08); }
+
+/* ---------- LMS chip in the portal nav ---------- */
+.lms-chip { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:600;
+  padding:5px 12px; border:1.5px dashed #8a1c1c; border-radius:20px; color:#8a1c1c;
+  text-decoration:none; }
+.lms-chip:hover { background: rgba(138,28,28,0.07); }
