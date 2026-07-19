@@ -125,7 +125,7 @@ def seed(conn):
     ]
     # Graded with a coursework/final breakdown so the ℹ️ detail icon shows
     # in the student portal (total = coursework + final).
-    marks = [(58, 38), (52, 36), (45, 28), (55, 36), (50, 34), (40, 27)]
+    marks = [(48, 45), (44, 36), (37, 28), (46, 40), (42, 34), (33, 27)]
     for (s, sec), (coursework, final) in zip(enroll_plan, marks):
         enrollments.enroll_student(s.student_id, sec.section_id)
         fees.bill_course(s.student_id, sec.course_id, spring.term_id, due_date="2026-01-30")
