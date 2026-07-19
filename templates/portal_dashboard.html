@@ -10,13 +10,37 @@
     <div class="ledger-row"><span class="label">{{ t('student.earned_hours') }}</span><span class="value">{{ earned_hours }}</span></div>
     <div class="ledger-row"><span class="label">{{ t('student.remaining_hours') }}</span><span class="value">{{ remaining_hours if remaining_hours is not none else '—' }}</span></div>
   </div>
+
+  <div class="card">
+    <h2>{{ t('reg.current') }}</h2>
+    {% if my_courses %}
+    <table>
+      <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('course.title') }}</th><th class="num">{{ t('course.credits') }}</th></tr></thead>
+      <tbody>{% for r in my_courses %}<tr>
+        <td>{{ r['course_code'] }}</td>
+        <td>{{ r['title_ar'] if locale=='ar' and r['title_ar'] else r['title'] }}</td>
+        <td class="num">{{ r['credit_hours'] }}</td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="muted">{{ t('empty.none') }}</p>{% endif %}
+    <div class="actions-row" style="margin-top:12px; gap:8px;">
+      <a class="btn btn--primary" href="{{ url_for('portal_registration') }}">{{ t('reg.new_course') }}</a>
+      <a class="btn btn--ghost" href="{{ url_for('portal_grades') }}">{{ t('nav.my_grades') }}</a>
+    </div>
+  </div>
+
   <div class="card">
     <h2>{{ t('nav.financial') }}</h2>
-    <div class="ledger-row"><span class="label">{{ t('student.balance') }}</span><span class="value">{{ "%.2f"|format(balance) }} SAR</span></div>
-    <div class="actions-row" style="margin-top:12px; flex-direction:column; gap:8px; align-items:stretch;">
-      <a class="btn btn--primary" href="{{ url_for('portal_registration') }}">{{ t('nav.registration') }}</a>
-      <a class="btn btn--ghost" href="{{ url_for('portal_financial') }}">{{ t('fin.pay_now') }}</a>
-      <a class="btn btn--ghost" href="{{ url_for('portal_grades') }}">{{ t('nav.my_grades') }}</a>
+    <table>
+      <tbody>
+        <tr><td>{{ t('student.balance') }}</td>
+            <td class="num"><span class="stamp stamp--{{ 'attention' if balance > 0 else 'ok' }}">{{ "%.2f"|format(balance) }} SAR</span></td></tr>
+        <tr><td>{{ t('fin.total_paid') }}</td>
+            <td class="num">{{ "%.2f"|format(total_paid) }} SAR</td></tr>
+      </tbody>
+    </table>
+    <div class="actions-row" style="margin-top:12px;">
+      <a class="btn btn--ghost" href="{{ url_for('portal_financial') }}">{{ t('fin.view_details') }}</a>
     </div>
   </div>
 </div>

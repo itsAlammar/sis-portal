@@ -32,8 +32,8 @@
         <select name="status">{% for st in ['active','suspended','graduated','withdrawn','deferred'] %}<option value="{{ st }}" {{ 'selected' if st==student.status }}>{{ ts(st) }}</option>{% endfor %}</select>
         <button class="btn--small">{{ t('action.update') }}</button>
       </form>
-      <form method="post" action="{{ url_for('students_portal_reset', student_id=student.student_id) }}" style="margin-top:8px;" onsubmit="return confirm('Reset portal password to national ID?');">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">Reset portal password</button>
+      <form method="post" action="{{ url_for('students_portal_reset', student_id=student.student_id) }}" style="margin-top:8px;" >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">{{ t('student.portal_reset') }}</button>
       </form>
     </div>
     <div class="card">

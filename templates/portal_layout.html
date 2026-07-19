@@ -8,13 +8,13 @@
 </head>
 <body>
 <header class="portal-header">
-  <div>
+  <a href="{{ url_for('portal_dashboard') }}" style="text-decoration:none; color:inherit;">
     <div class="page-eyebrow">{{ t('landing.portal_title') }}</div>
     <h1 style="font-size:19px; margin:0;">
       {{ portal_student.display_name(locale) if portal_student else t('app.short') }}
       {% if portal_student %}<span class="stamp stamp--default">{{ portal_student.student_number }}</span>{% endif %}
     </h1>
-  </div>
+  </a>
   <nav class="portal-nav">
     <a href="{{ url_for('portal_dashboard') }}" class="{{ 'active' if request.endpoint=='portal_dashboard' }}">{{ t('nav.dashboard') }}</a>
     <a href="{{ url_for('portal_registration') }}" class="{{ 'active' if request.endpoint=='portal_registration' }}">{{ t('nav.registration') }}</a>

@@ -164,6 +164,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "att.absences": {"en": "Absences", "ar": "الغيابات"},
     "att.sessions": {"en": "Sessions", "ar": "المحاضرات"},
     "action.download_pdf": {"en": "Download PDF transcript", "ar": "تحميل السجل الأكاديمي PDF"},
+    "reg.new_course": {"en": "Register a new course", "ar": "تسجيل مقرر جديد"},
+    "fin.view_details": {"en": "Financial details", "ar": "التفاصيل المالية"},
+    "fin.total_paid": {"en": "Total paid", "ar": "إجمالي المدفوع"},
+    "student.portal_reset": {"en": "Reset portal password", "ar": "إعادة تعيين كلمة مرور البوابة"},
     "search.by_number_or_name": {"en": "Search by number or name",
                                  "ar": "ابحث بالرقم الجامعي أو الاسم"},
 

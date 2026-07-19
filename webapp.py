@@ -1317,11 +1317,16 @@ def portal_dashboard():
     sid = session["portal_student_id"]
     gpa, fees = GPAService(conn), FeeService(conn)
     cum = gpa.calculate_cumulative_gpa(sid)
+    my_courses = [r for r in EnrollmentService(conn).list_student_enrollments(sid)
+                  if r["status"] == "enrolled"]
+    statement = fees.list_fees_for_student(sid)
+    total_paid = sum(fees.get_total_paid(f.fee_id) for f in statement if f.status != "waived")
     return render_template("portal_dashboard.html", student=StudentService(conn).get_student(sid),
                            cum_gpa=cum, standing=gpa.get_academic_standing(cum, locale()),
                            earned_hours=gpa.get_earned_credit_hours(sid),
                            remaining_hours=gpa.get_remaining_credit_hours(sid),
-                           balance=fees.get_student_balance(sid))
+                           balance=fees.get_student_balance(sid),
+                           my_courses=my_courses, total_paid=round(total_paid, 2))
 
 
 @app.route("/portal/registration", methods=["GET", "POST"])

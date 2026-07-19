@@ -14,7 +14,7 @@
       {% elif staff_user and staff_user.role == 'accounting' %}{{ t('role.accounting') }}
       {% else %}{{ t('landing.registrar_title') }}{% endif %}
     </div>
-    <h1><a href="{{ url_for('landing') }}" style="color:inherit;">{{ t('app.short') }}</a></h1>
+    <h1><a href="{{ url_for('teach_dashboard') if staff_user and staff_user.role=='teacher' else (url_for('financial_overview') if staff_user and staff_user.role=='accounting' else (url_for('dashboard') if staff_user else url_for('landing'))) }}" style="color:inherit;">{{ t('app.short') }}</a></h1>
     {% if current_term %}<div class="term-badge">{{ current_term.display_name(locale) }}</div>{% endif %}
     <ul class="nav-list">
       {% if staff_user and staff_user.role == 'teacher' %}
