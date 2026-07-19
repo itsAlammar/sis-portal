@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% from "_pagination.html" import pager %}
+{% block title %}{{ t('nav.emails') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('nav.emails') }}</h1>
+  <a class="btn btn--ghost" href="{{ url_for('settings') }}">{{ t('mail.settings') }}</a></div>
+<div class="card">
+  {% if entries %}
+  <table>
+    <thead><tr><th>{{ t('common.when') }}</th><th>{{ t('common.email') }}</th><th>{{ t('common.details') }}</th><th>{{ t('common.status') }}</th></tr></thead>
+    <tbody>{% for e in entries %}<tr>
+      <td class="num" style="white-space:nowrap;">{{ e['created_at'].replace('T',' ') }}</td>
+      <td>{{ e['to_address'] }}</td>
+      <td>
+        <details class="nav-menu"><summary class="icon-link">✉️ {{ e['subject'][:40] }}</summary>
+          <div class="menu-pop" style="min-width:320px; white-space:pre-wrap;">{{ e['body'] }}</div>
+        </details>
+        {% if e['error'] %}<div class="muted">{{ e['error'] }}</div>{% endif %}
+      </td>
+      <td><span class="stamp stamp--{{ 'ok' if e['status']=='sent' else ('attention' if e['status']=='failed' else 'progress') }}">{{ e['status'] }}</span></td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {{ pager(page, pages) }}
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+</div>
+{% endblock %}

@@ -9,7 +9,7 @@
 </div>
 <div class="card" style="margin-top:16px;">
   <h2>{{ t('fin.per_course') }}</h2>
-  <table><thead><tr><th>Type</th><th class="num">{{ t('fin.amount') }}</th></tr></thead>
-  <tbody>{% for r in by_type %}<tr><td>{{ r['fee_type'] }}</td><td class="num">{{ "%.2f"|format(r['total']) }}</td></tr>{% endfor %}</tbody></table>
+  <table><thead><tr><th>{{ t('common.type') }}</th><th class="num">{{ t('fin.amount') }}</th></tr></thead>
+  <tbody>{% for r in by_type %}<tr><td>{{ tf(r['fee_type']) }}</td><td class="num">{{ "%.2f"|format(r['total']) }}</td></tr>{% endfor %}</tbody></table>
 </div>
 {% endblock %}

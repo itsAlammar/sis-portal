@@ -14,8 +14,8 @@
   <div class="grid-2">
     <div><label>{{ t('common.mobile') }}</label><input name="phone"></div>
     <div><label>{{ t('common.gender') }}</label><select name="gender"><option value="male">{{ t('common.male') }}</option><option value="female">{{ t('common.female') }}</option></select></div>
-    <div><label>Title</label><input name="title"></div>
-    <div><label>Dept</label><select name="department_id"><option value="">—</option>{% for d in departments %}<option value="{{ d['department_id'] }}">{{ d['name'] }}</option>{% endfor %}</select></div>
+    <div><label>{{ t('teacher.title') }}</label><input name="title"></div>
+    <div><label>{{ t('common.department') }}</label><select name="department_id"><option value="">—</option>{% for d in departments %}<option value="{{ d['department_id'] }}">{{ d['name'] }}</option>{% endfor %}</select></div>
   </div>
   <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
 </form>

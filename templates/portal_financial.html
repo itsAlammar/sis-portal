@@ -7,9 +7,9 @@
   <p class="muted">{{ t('fin.per_course') }}</p>
   {% if fee_statement %}
   <table>
-    <thead><tr><th>Type</th><th>{{ t('course.code') }}</th><th class="num">{{ t('fin.amount') }}</th><th class="num">{{ t('fin.tax') }}</th><th class="num">{{ t('fin.remaining') }}</th><th></th></tr></thead>
+    <thead><tr><th>{{ t('common.type') }}</th><th>{{ t('course.code') }}</th><th class="num">{{ t('fin.amount') }}</th><th class="num">{{ t('fin.tax') }}</th><th class="num">{{ t('fin.remaining') }}</th><th></th></tr></thead>
     <tbody>{% for e in fee_statement %}<tr>
-      <td>{{ e.fee.fee_type }}</td>
+      <td>{{ tf(e.fee.fee_type) }}</td>
       <td>{{ e.course_code or '—' }}</td>
       <td class="num">{{ "%.2f"|format(e.fee.amount) }}</td>
       <td class="num">{{ "%.2f"|format(e.fee.tax_amount) }}</td>
@@ -20,7 +20,7 @@
           <input type="number" name="amount_paid" step="0.01" max="{{ e.balance }}" value="{{ e.balance }}" style="width:90px;">
           <button class="btn--small btn--primary">{{ t('fin.pay_now') }}</button>
         </form>
-      {% else %}<span class="stamp stamp--{{ status_kind(e.fee.status) }}">{{ e.fee.status }}</span>{% endif %}</td>
+      {% else %}<span class="stamp stamp--{{ status_kind(e.fee.status) }}">{{ ts(e.fee.status) }}</span>{% endif %}</td>
     </tr>{% endfor %}</tbody>
   </table>
   {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}

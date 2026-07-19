@@ -5,14 +5,10 @@
   <span class="stamp stamp--default">{{ t('student.gpa') }}: {{ "%.2f"|format(cum_gpa) if cum_gpa is not none else 'N/A' }} / 5 — {{ standing }}</span>
 </div>
 <div class="card">
-  <form method="get" class="filter-bar" style="display:flex; gap:10px;">
-    <select name="year_id" onchange="this.form.submit()">
-      <option value="">{{ t('common.all') }} — Years</option>
-      {% for y in years %}<option value="{{ y.year_id }}" {{ 'selected' if sel_year==y.year_id }}>{{ y.name }}</option>{% endfor %}
-    </select>
+  <form method="get" class="filter-bar">
     <select name="term_id" onchange="this.form.submit()">
-      <option value="">{{ t('common.all') }} — {{ t('nav.terms') }}</option>
-      {% for tm in terms %}<option value="{{ tm.term_id }}" {{ 'selected' if sel_term==tm.term_id }}>{{ tm.display_name(locale) }}</option>{% endfor %}
+      <option value="">{{ t('common.all') }} — {{ t('term.year') }} / {{ t('nav.terms') }}</option>
+      {% for tid, label in term_options %}<option value="{{ tid }}" {{ 'selected' if sel_term==tid }}>{{ label }}</option>{% endfor %}
     </select>
   </form>
 </div>
@@ -20,13 +16,24 @@
 <div class="card" style="margin-top:14px;">
   <h2>{{ term.display_name(locale) }} {% if term_gpa %}<span class="muted">— {{ "%.2f"|format(term_gpa) }}/5</span>{% endif %}</h2>
   <table>
-    <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('course.title') }}</th><th class="num">{{ t('course.credits') }}</th><th class="num">{{ t('grade.numeric') }}</th><th>{{ t('grade.letter') }}</th></tr></thead>
+    <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('course.title') }}</th><th class="num">{{ t('course.credits') }}</th><th class="num">{{ t('grade.numeric') }}</th><th>{{ t('grade.letter') }}</th><th></th></tr></thead>
     <tbody>{% for r in rows %}<tr>
       <td>{{ r['course_code'] }}</td>
       <td>{{ r['title_ar'] if locale=='ar' and r['title_ar'] else r['title'] }}</td>
       <td class="num">{{ r['credit_hours'] }}</td>
       <td class="num">{{ r['numeric_mark']|round|int if r['numeric_mark'] is not none else '—' }}</td>
       <td>{{ r['grade'] or '—' }}</td>
+      <td>
+        {% if r['coursework_mark'] is not none or r['final_mark'] is not none %}
+        <details class="nav-menu">
+          <summary class="icon-link" title="{{ t('grade.breakdown') }}">ℹ️</summary>
+          <div class="menu-pop">
+            <div style="display:flex; justify-content:space-between; gap:14px;"><span>{{ t('grade.coursework') }}</span><strong>{{ r['coursework_mark']|round|int if r['coursework_mark'] is not none else '—' }}</strong></div>
+            <div style="display:flex; justify-content:space-between; gap:14px;"><span>{{ t('grade.final') }}</span><strong>{{ r['final_mark']|round|int if r['final_mark'] is not none else '—' }}</strong></div>
+          </div>
+        </details>
+        {% endif %}
+      </td>
     </tr>{% endfor %}</tbody>
   </table>
 </div>

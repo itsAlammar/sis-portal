@@ -22,7 +22,7 @@
         <div><label>{{ t('course.credits') }}</label><input type="number" name="required_credit_hours" value="120" min="1"></div>
         <div><label>{{ t('common.gender') }}</label><select name="gender"><option value="any">{{ t('common.all') }}</option><option value="male">{{ t('common.male') }}</option><option value="female">{{ t('common.female') }}</option></select></div>
       </div>
-      <label>Dept</label><select name="department_id"><option value="">—</option>{% for d in departments %}<option value="{{ d['department_id'] }}">{{ d['name'] }}</option>{% endfor %}</select>
+      <label>{{ t('common.department') }}</label><select name="department_id"><option value="">—</option>{% for d in departments %}<option value="{{ d['department_id'] }}">{{ d['name'] }}</option>{% endfor %}</select>
       <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
     </form>
   </div>

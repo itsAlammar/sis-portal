@@ -2,15 +2,32 @@
 {% block title %}{{ t('nav.settings') }}{% endblock %}
 {% block content %}
 <div class="page-header"><h1>{{ t('nav.settings') }}</h1></div>
-<div class="card" style="max-width:520px;">
 <form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <label>{{ t('fin.registration_fee') }} (SAR)</label><input type="number" name="registration_fee" step="0.01" value="{{ settings.registration_fee }}">
-  <label>{{ t('fin.tax') }} % ({{ t('common.non_saudi') }})</label><input type="number" name="vat_rate" step="0.01" value="{{ settings.vat_rate }}">
-  <label>Institution (EN)</label><input name="institution_name_en" value="{{ settings.institution_name_en }}">
-  <label>Institution (AR)</label><input name="institution_name_ar" dir="rtl" value="{{ settings.institution_name_ar }}">
-  <label style="font-weight:400; margin-top:10px;"><input type="checkbox" name="lms_enabled" {{ 'checked' if settings.lms_enabled=='1' }}> {{ t('nav.lms_soon') }}</label>
-  <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
-</form>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="grid-2">
+  <div class="card">
+    <h2>{{ t('nav.financial') }}</h2>
+    <label>{{ t('fin.registration_fee') }} (SAR)</label><input type="number" name="registration_fee" step="0.01" value="{{ settings.registration_fee }}">
+    <label>{{ t('fin.tax') }} % ({{ t('common.non_saudi') }})</label><input type="number" name="vat_rate" step="0.01" value="{{ settings.vat_rate }}">
+    <label>{{ t('settings.institution_en') }}</label><input name="institution_name_en" value="{{ settings.institution_name_en }}">
+    <label>{{ t('settings.institution_ar') }}</label><input name="institution_name_ar" dir="rtl" value="{{ settings.institution_name_ar }}">
+    <label style="font-weight:400; margin-top:10px;"><input type="checkbox" name="lms_enabled" {{ 'checked' if settings.lms_enabled=='1' }}> {{ t('nav.lms_soon') }}</label>
+  </div>
+  <div class="card">
+    <h2>{{ t('mail.settings') }}</h2>
+    <label style="font-weight:400;"><input type="checkbox" name="auto_email_on_approval" {{ 'checked' if settings.auto_email_on_approval=='1' }}> {{ t('mail.auto_on_approval') }}</label>
+    <label style="font-weight:400;"><input type="checkbox" name="email_enabled" {{ 'checked' if settings.email_enabled=='1' }}> {{ t('mail.enabled') }}</label>
+    <div class="grid-2">
+      <div><label>SMTP host</label><input name="smtp_host" value="{{ settings.smtp_host }}"></div>
+      <div><label>SMTP port</label><input name="smtp_port" value="{{ settings.smtp_port }}"></div>
+      <div><label>SMTP user</label><input name="smtp_user" value="{{ settings.smtp_user }}"></div>
+      <div><label>SMTP password</label><input type="password" name="smtp_password" value="{{ settings.smtp_password }}"></div>
+    </div>
+    <label>From</label><input name="smtp_from" value="{{ settings.smtp_from }}">
+    <label>{{ t('mail.subject') }}</label><input name="acceptance_subject" value="{{ settings.acceptance_subject }}">
+    <label>{{ t('mail.body') }}</label><textarea name="acceptance_body" rows="8">{{ settings.acceptance_body }}</textarea>
+  </div>
 </div>
+<div class="actions-row" style="margin-top:14px;"><button class="btn--primary">{{ t('action.save') }}</button> <a class="btn btn--ghost" href="{{ url_for('emails_log') }}">{{ t('nav.emails') }}</a></div>
+</form>
 {% endblock %}

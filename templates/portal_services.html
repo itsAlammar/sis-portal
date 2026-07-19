@@ -3,14 +3,15 @@
 {% block content %}
 <div class="page-header"><h1>{{ t('other.title') }}</h1></div>
 <p class="muted">{{ t('other.desc') }}</p>
+
 <div class="grid-2">
   <div class="card">
     <h2>{{ t('action.submit') }}</h2>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label>Type</label>
-      <select name="kind" required>{% for k in kinds %}<option value="{{ k }}">{{ k }}</option>{% endfor %}</select>
-      <label>Details</label><textarea name="details" rows="3"></textarea>
+      <label>{{ t('common.type') }}</label>
+      <select name="kind" required>{% for k in kinds %}<option value="{{ k }}">{{ tk(k) }}</option>{% endfor %}</select>
+      <label>{{ t('common.details') }}</label><textarea name="details" rows="3"></textarea>
       <div class="actions-row"><button class="btn--primary">{{ t('action.submit') }}</button></div>
     </form>
   </div>
@@ -18,8 +19,8 @@
     <h2>{{ t('common.status') }}</h2>
     {% if requests %}
     <table>
-      <thead><tr><th>Type</th><th>{{ t('common.status') }}</th></tr></thead>
-      <tbody>{% for r in requests %}<tr><td>{{ r.kind }}</td><td><span class="stamp stamp--{{ status_kind(r.status) }}">{{ r.status }}</span></td></tr>{% endfor %}</tbody>
+      <thead><tr><th>{{ t('common.type') }}</th><th>{{ t('common.status') }}</th></tr></thead>
+      <tbody>{% for r in requests %}<tr><td>{{ tk(r.kind) }}</td><td><span class="stamp stamp--{{ status_kind(r.status) }}">{{ ts(r.status) }}</span></td></tr>{% endfor %}</tbody>
     </table>
     {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
   </div>

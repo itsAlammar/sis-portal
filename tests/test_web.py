@@ -90,7 +90,7 @@ def test_bad_national_id_rejected_on_apply(client):
         "date_of_birth": "2005-01-01", "gender": "male", "nationality": "Saudi",
         "csrf_token": tok,
     }, follow_redirects=True)
-    assert "10 digits" in r.get_data(as_text=True) or "١٠" in r.get_data(as_text=True)
+    assert "10 digits" in r.get_data(as_text=True) or "10" in r.get_data(as_text=True)
 
 
 def test_csv_export_then_reimport(client):
@@ -115,3 +115,53 @@ def test_csrf_required(client):
     login(client, "reg", "reg-pass-1")
     assert client.post("/students/add", data={"first_name": "X", "last_name": "Y",
                                               "email": "x@y.com"}).status_code == 400
+
+
+def test_approved_student_appears_in_students_list_and_email_logged(client):
+    # Submit a public application.
+    tok = _csrf(client, "/apply")
+    client.post("/apply", data={
+        "national_id": "5556667770", "first_name": "Visible", "second_name": "In",
+        "third_name": "The", "last_name": "List", "name_ar": "طالب يظهر في القائمة",
+        "email": "visible@x.com", "phone": "0550002222", "date_of_birth": "2005-05-05",
+        "gender": "male", "nationality": "Saudi", "csrf_token": tok,
+    })
+    login(client, "admin", "admin-pass-1")
+    html = client.get("/admissions").get_data(as_text=True)
+    app_id = int(re.search(r"/admissions/(\d+)/approve", html).group(1))
+    client.post(f"/admissions/{app_id}/approve",
+                data={"csrf_token": _csrf(client, "/admissions")})
+
+    # The new student shows up in the students list immediately.
+    listing = client.get("/students").get_data(as_text=True)
+    assert "طالب يظهر في القائمة" in listing or "Visible" in listing
+
+    # Acceptance email was recorded in the log (sending disabled by default).
+    log = client.get("/emails").get_data(as_text=True)
+    assert "visible@x.com" in log
+
+
+def test_grade_breakdown_saved_and_totalled(client):
+    import database
+    from database import get_connection
+    from student_service import StudentService
+    from teacher_service import TeacherService
+    from course_service import CourseService
+    from term_service import TermService
+    from section_service import SectionService
+    from enrollment_service import EnrollmentService
+    from grading_service import GradingService
+
+    conn = get_connection(database.DB_PATH)
+    term = TermService(conn).add_term("F2031", "2031-09-01", "2031-12-20")
+    course = CourseService(conn).add_course("BRK101", "Breakdown", 3)
+    section = SectionService(conn).add_section(course.course_id, term.term_id, "01",
+                                               gender="male", capacity=5)
+    student = StudentService(conn).add_student("Break", "Down", "brk@x.com", gender="male")
+    EnrollmentService(conn).enroll_student(student.student_id, section.section_id)
+
+    e = GradingService(conn).assign_breakdown_by_pair(
+        student.student_id, section.section_id, coursework=48, final=44)
+    assert e.numeric_mark == 92 and e.grade == "A"
+    assert e.coursework_mark == 48 and e.final_mark == 44
+    conn.close()

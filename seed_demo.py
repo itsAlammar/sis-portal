@@ -35,7 +35,7 @@ def seed(conn):
     bus = majors.add_major("BUS", "Business Administration", "إدارة الأعمال", 126, dept["BUS"], "any")
 
     terms = TermService(conn)
-    year = terms.get_or_create_year("2025-2026", "١٤٤٧هـ")
+    year = terms.get_or_create_year("2025-2026", "1447هـ")
     fall = terms.add_term("Fall 2025", "2025-09-01", "2025-12-20", name_ar="الفصل الأول",
                           academic_year_id=year.year_id)
     spring = terms.add_term("Spring 2026", "2026-01-15", "2026-05-10", name_ar="الفصل الثاني",

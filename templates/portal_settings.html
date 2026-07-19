@@ -11,7 +11,7 @@
     <div class="ledger-row"><span class="label">{{ t('common.mobile') }}</span><span class="value" style="font-weight:400;">{{ student.phone or '—' }}</span></div>
   </div>
   <div class="card">
-    <h2>{{ t('auth.password') }}</h2>
+    <h2>{{ t('settings.change_password') }}</h2>
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>{{ t('auth.password') }}</label><input type="password" name="password" required minlength="8">

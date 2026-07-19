@@ -6,7 +6,7 @@
 <div class="card">
   {% if entries %}
   <table>
-    <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Details</th></tr></thead>
+    <thead><tr><th>{{ t('common.when') }}</th><th>{{ t('common.who') }}</th><th>{{ t('common.action') }}</th><th>{{ t('common.details') }}</th></tr></thead>
     <tbody>{% for e in entries %}<tr><td class="num" style="white-space:nowrap;">{{ e['at'].replace('T',' ') }}</td><td>{{ e['actor'] }}</td><td><span class="stamp stamp--default">{{ e['action'] }}</span></td><td class="muted">{{ e['details'] or '' }}</td></tr>{% endfor %}</tbody>
   </table>
   {{ pager(page, pages) }}

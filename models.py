@@ -235,6 +235,8 @@ class Enrollment:
     enrollment_date: str
     status: str
     numeric_mark: Optional[float]
+    coursework_mark: Optional[float]
+    final_mark: Optional[float]
     grade: Optional[str]
     grade_points: Optional[float]
 
@@ -243,6 +245,7 @@ class Enrollment:
         return cls(
             row["enrollment_id"], row["student_id"], row["section_id"],
             row["enrollment_date"], row["status"], _g(row, "numeric_mark"),
+            _g(row, "coursework_mark"), _g(row, "final_mark"),
             row["grade"], row["grade_points"],
         )
 

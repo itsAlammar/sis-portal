@@ -34,6 +34,7 @@
         {% if staff_user and staff_user.role == 'admin' %}
         <li><a href="{{ url_for('financial_overview') }}">{{ t('nav.financial') }}</a></li>
         <li><a href="{{ url_for('users_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('users') }}">{{ t('nav.roles') }}</a></li>
+        <li><a href="{{ url_for('emails_log') }}" class="{{ 'active' if request.endpoint=='emails_log' }}">{{ t('nav.emails') }}</a></li>
         <li><a href="{{ url_for('settings') }}" class="{{ 'active' if request.endpoint=='settings' }}">{{ t('nav.settings') }}</a></li>
         {% endif %}
         <li><a href="{{ url_for('audit_log') }}" class="{{ 'active' if request.endpoint=='audit_log' }}">{{ t('nav.audit') }}</a></li>

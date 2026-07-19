@@ -6,11 +6,11 @@
   <div class="card">
     {% if terms %}
     <table>
-      <thead><tr><th>{{ t('common.name') }}</th><th>Year</th><th>Kind</th><th></th></tr></thead>
+      <thead><tr><th>{{ t('common.name') }}</th><th>{{ t('term.year') }}</th><th>{{ t('common.type') }}</th><th></th></tr></thead>
       <tbody>{% for tm in terms %}<tr>
         <td>{{ tm.display_name(locale) }} {% if tm.is_current %}<span class="stamp stamp--default">✓</span>{% endif %}</td>
-        <td class="muted">{{ tm.start_date }}</td><td>{{ tm.kind }}</td>
-        <td>{% if not tm.is_current %}<form method="post" action="{{ url_for('terms_set_current', term_id=tm.term_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">Set current</button></form>{% endif %}</td>
+        <td class="muted">{{ tm.start_date }}</td><td>{{ t('term.' + tm.kind) if ('term.' + tm.kind) else tm.kind }}</td>
+        <td>{% if not tm.is_current %}<form method="post" action="{{ url_for('terms_set_current', term_id=tm.term_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">{{ t('term.set_current') }}</button></form>{% endif %}</td>
       </tr>{% endfor %}</tbody>
     </table>
     {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
@@ -21,15 +21,15 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>{{ t('common.name') }} (EN)</label><input name="name" required>
       <label>{{ t('common.name') }} (AR)</label><input name="name_ar" dir="rtl">
-      <label>Academic year (e.g. 2025-2026)</label><input name="year_name" list="years"><datalist id="years">{% for y in years %}<option value="{{ y.name }}">{% endfor %}</datalist>
+      <label>{{ t('term.year') }} (2025-2026)</label><input name="year_name" list="years"><datalist id="years">{% for y in years %}<option value="{{ y.name }}">{% endfor %}</datalist>
       <div class="grid-2">
-        <div><label>Start</label><input type="date" name="start_date" required></div>
-        <div><label>End</label><input type="date" name="end_date" required></div>
-        <div><label>Kind</label><select name="kind"><option value="regular">regular</option><option value="summer">summer</option></select></div>
+        <div><label>{{ t('term.start') }}</label><input type="date" name="start_date" required></div>
+        <div><label>{{ t('term.end') }}</label><input type="date" name="end_date" required></div>
+        <div><label>{{ t('common.type') }}</label><select name="kind"><option value="regular">{{ t('term.regular') }}</option><option value="summer">{{ t('term.summer') }}</option></select></div>
       </div>
       <div class="grid-2">
-        <div><label>Add deadline</label><input type="date" name="add_deadline"></div>
-        <div><label>Drop deadline</label><input type="date" name="drop_deadline"></div>
+        <div><label>{{ t('term.add_deadline') }}</label><input type="date" name="add_deadline"></div>
+        <div><label>{{ t('term.drop_deadline') }}</label><input type="date" name="drop_deadline"></div>
       </div>
       <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
     </form>

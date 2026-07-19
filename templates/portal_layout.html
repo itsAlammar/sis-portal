@@ -19,12 +19,20 @@
     <a href="{{ url_for('portal_dashboard') }}" class="{{ 'active' if request.endpoint=='portal_dashboard' }}">{{ t('nav.dashboard') }}</a>
     <a href="{{ url_for('portal_registration') }}" class="{{ 'active' if request.endpoint=='portal_registration' }}">{{ t('nav.registration') }}</a>
     <a href="{{ url_for('portal_grades') }}" class="{{ 'active' if request.endpoint=='portal_grades' }}">{{ t('nav.my_grades') }}</a>
-    <a href="{{ url_for('portal_degree') }}" class="{{ 'active' if request.endpoint=='portal_degree' }}">{{ t('nav.degree_audit') }}</a>
     <a href="{{ url_for('portal_financial') }}" class="{{ 'active' if request.endpoint=='portal_financial' }}">{{ t('nav.financial') }}</a>
     <a href="{{ url_for('portal_services') }}" class="{{ 'active' if request.endpoint=='portal_services' }}">{{ t('nav.other_services') }}</a>
-    <a href="{{ url_for('portal_settings') }}" class="{{ 'active' if request.endpoint=='portal_settings' }}">{{ t('nav.settings') }}</a>
-    <a class="lang-toggle" href="{{ url_for('set_lang', code='ar' if locale=='en' else 'en') }}">{{ t('lang.toggle') }}</a>
-    <form method="post" action="{{ url_for('portal_logout') }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">{{ t('action.logout') }}</button></form>
+    <a href="{{ url_for('lms_placeholder') }}" class="icon-link" title="{{ t('nav.lms_soon') }}">🎓</a>
+    <details class="nav-menu">
+      <summary class="icon-link" title="{{ t('menu.account') }}">⚙️</summary>
+      <div class="menu-pop">
+        <a href="{{ url_for('portal_settings') }}">{{ t('nav.settings') }}</a>
+        <a href="{{ url_for('set_lang', code='ar' if locale=='en' else 'en') }}">{{ t('lang.toggle') }}</a>
+        <form method="post" action="{{ url_for('portal_logout') }}" style="margin:0;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn--ghost btn--small" style="width:100%;">{{ t('action.logout') }}</button>
+        </form>
+      </div>
+    </details>
   </nav>
 </header>
 <main class="main" style="max-width:1080px; margin:0 auto;">

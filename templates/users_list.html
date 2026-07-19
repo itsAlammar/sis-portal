@@ -5,12 +5,12 @@
 <div class="grid-2">
   <div class="card">
     <table>
-      <thead><tr><th>{{ t('auth.username') }}</th><th>Role</th><th>{{ t('common.status') }}</th><th></th></tr></thead>
+      <thead><tr><th>{{ t('auth.username') }}</th><th>{{ t('user.role') }}</th><th>{{ t('common.status') }}</th><th></th></tr></thead>
       <tbody>{% for row in users %}<tr>
         <td>{{ row.user.username }}</td>
         <td><span class="stamp stamp--default">{{ t('role.' + row.user.role) }}</span></td>
-        <td><span class="stamp stamp--{{ status_kind(row.user.status) }}">{{ row.user.status }}</span></td>
-        <td><form method="post" action="{{ url_for('users_set_status', user_id=row.user.user_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="{{ 'disabled' if row.user.status=='active' else 'active' }}"><button class="btn--ghost btn--small">{{ 'Disable' if row.user.status=='active' else 'Enable' }}</button></form></td>
+        <td><span class="stamp stamp--{{ status_kind(row.user.status) }}">{{ ts(row.user.status) }}</span></td>
+        <td><form method="post" action="{{ url_for('users_set_status', user_id=row.user.user_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="{{ 'disabled' if row.user.status=='active' else 'active' }}"><button class="btn--ghost btn--small">{{ t('user.disable') if row.user.status=='active' else t('user.enable') }}</button></form></td>
       </tr>{% endfor %}</tbody>
     </table>
   </div>
@@ -20,7 +20,7 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>{{ t('auth.username') }}</label><input name="username" required>
       <label>{{ t('auth.password') }}</label><input type="password" name="password" required minlength="8">
-      <label>Role</label>
+      <label>{{ t('user.role') }}</label>
       <select name="role"><option value="registrar">{{ t('role.registrar') }}</option><option value="accounting">{{ t('role.accounting') }}</option><option value="teacher">{{ t('role.teacher') }}</option><option value="admin">{{ t('role.admin') }}</option></select>
       <label>{{ t('role.teacher') }} (for teacher role)</label>
       <select name="teacher_id"><option value="">—</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}">{{ tt.display_name(locale) }}</option>{% endfor %}</select>

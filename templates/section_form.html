@@ -8,15 +8,15 @@
   <div class="grid-2">
     <div><label>{{ t('nav.courses') }}</label><select name="course_id" required>{% for c in courses %}<option value="{{ c.course_id }}">{{ c.course_code }}</option>{% endfor %}</select></div>
     <div><label>{{ t('nav.terms') }}</label><select name="term_id" required>{% for tm in terms %}<option value="{{ tm.term_id }}">{{ tm.display_name(locale) }}</option>{% endfor %}</select></div>
-    <div><label>Section #</label><input name="section_number" required></div>
+    <div><label>{{ t('section.number') }}</label><input name="section_number" required></div>
     <div><label>{{ t('common.gender') }}</label><select name="gender"><option value="male">{{ t('common.male') }}</option><option value="female">{{ t('common.female') }}</option></select></div>
-    <div><label>{{ t('role.teacher') }}</label><select name="teacher_id"><option value="">TBD</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}">{{ tt.display_name(locale) }} ({{ t('common.male') if tt.gender=='male' else t('common.female') }})</option>{% endfor %}</select></div>
-    <div><label>Capacity</label><input type="number" name="capacity" value="30" min="1" required></div>
-    <div><label>Room</label><input name="room"></div>
+    <div><label>{{ t('role.teacher') }}</label><select name="teacher_id"><option value="">{{ t('section.tbd') }}</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}">{{ tt.display_name(locale) }} ({{ t('common.male') if tt.gender=='male' else t('common.female') }})</option>{% endfor %}</select></div>
+    <div><label>{{ t('section.capacity') }}</label><input type="number" name="capacity" value="30" min="1" required></div>
+    <div><label>{{ t('section.room') }}</label><input name="room"></div>
   </div>
-  <label>Days</label>
+  <label>{{ t('section.days') }}</label>
   <div style="display:flex; gap:10px; flex-wrap:wrap;">{% for d in ['SUN','MON','TUE','WED','THU'] %}<label style="font-weight:400;"><input type="checkbox" name="days" value="{{ d }}"> {{ d }}</label>{% endfor %}</div>
-  <div class="grid-2"><div><label>Start</label><input type="time" name="start_time"></div><div><label>End</label><input type="time" name="end_time"></div></div>
+  <div class="grid-2"><div><label>{{ t('section.start') }}</label><input type="time" name="start_time"></div><div><label>{{ t('section.end') }}</label><input type="time" name="end_time"></div></div>
   <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
 </form>
 </div>

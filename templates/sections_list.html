@@ -7,14 +7,14 @@
   <form method="get" class="filter-bar"><select name="term_id" onchange="this.form.submit()"><option value="">{{ t('common.all') }}</option>{% for tm in terms %}<option value="{{ tm.term_id }}" {{ 'selected' if selected_term_id==tm.term_id }}>{{ tm.display_name(locale) }}</option>{% endfor %}</select></form>
   {% if sections %}
   <table style="margin-top:12px;">
-    <thead><tr><th>{{ t('course.code') }}</th><th>Sec</th><th>{{ t('common.gender') }}</th><th>{{ t('role.teacher') }}</th><th class="num">Seats</th><th>{{ t('common.status') }}</th></tr></thead>
+    <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('section.number') }}</th><th>{{ t('common.gender') }}</th><th>{{ t('role.teacher') }}</th><th class="num">{{ t('common.seats') }}</th><th>{{ t('common.status') }}</th></tr></thead>
     <tbody>{% for r in sections %}<tr>
       <td><a href="{{ url_for('sections_detail', section_id=r.section.section_id) }}">{{ r.course.course_code }}</a></td>
       <td>{{ r.section.section_number }}</td>
       <td>{{ t('common.male') if r.section.gender=='male' else t('common.female') }}</td>
-      <td>{{ r.teacher.display_name(locale) if r.teacher else 'TBD' }}</td>
+      <td>{{ r.teacher.display_name(locale) if r.teacher else t('section.tbd') }}</td>
       <td class="num">{{ r.enrolled }}/{{ r.section.capacity }}</td>
-      <td><span class="stamp stamp--{{ status_kind(r.section.status) }}">{{ r.section.status }}</span></td>
+      <td><span class="stamp stamp--{{ status_kind(r.section.status) }}">{{ ts(r.section.status) }}</span></td>
     </tr>{% endfor %}</tbody>
   </table>
   {{ pager(page, pages) }}

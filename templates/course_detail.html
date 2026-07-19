@@ -21,7 +21,7 @@
     </form>
   </div>
   <div class="card">
-    <h2>Prerequisites</h2>
+    <h2>{{ t('course.prereqs') }}</h2>
     {% for group in prerequisite_groups %}<div>{{ group | map(attribute='course_code') | join(' / ') }}</div>{% else %}<p class="muted">—</p>{% endfor %}
     <form method="post" action="{{ url_for('courses_add_prereq', course_id=course.course_id) }}" style="margin-top:10px; display:flex; gap:6px;">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

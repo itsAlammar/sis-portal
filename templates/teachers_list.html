@@ -13,7 +13,7 @@
   {% if teachers %}
   <table>
     <thead><tr><th>#</th><th>{{ t('common.name') }}</th><th>{{ t('common.gender') }}</th><th>{{ t('common.status') }}</th></tr></thead>
-    <tbody>{% for tt in teachers %}<tr><td><span class="stamp stamp--default">{{ tt.employee_number }}</span></td><td>{{ tt.display_name(locale) }}<br><span class="muted">{{ tt.title or '' }}</span></td><td>{{ t('common.male') if tt.gender=='male' else t('common.female') }}</td><td><span class="stamp stamp--{{ status_kind(tt.status) }}">{{ tt.status }}</span></td></tr>{% endfor %}</tbody>
+    <tbody>{% for tt in teachers %}<tr><td><span class="stamp stamp--default">{{ tt.employee_number }}</span></td><td>{{ tt.display_name(locale) }}<br><span class="muted">{{ tt.title or '' }}</span></td><td>{{ t('common.male') if tt.gender=='male' else t('common.female') }}</td><td><span class="stamp stamp--{{ status_kind(tt.status) }}">{{ ts(tt.status) }}</span></td></tr>{% endfor %}</tbody>
   </table>
   {{ pager(page, pages) }}
   {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}

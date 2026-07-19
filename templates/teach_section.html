@@ -10,7 +10,25 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <table>
       <thead><tr><th>{{ t('nav.students') }}</th><th>{{ t('grade.numeric') }}</th></tr></thead>
-      <tbody>{% for r in roster %}<tr><td>{{ r['student_number'] }} — {{ r['first_name'] }} {{ r['last_name'] }}</td><td>{% if r['status']=='enrolled' %}<input type="text" name="grade_{{ r['student_id'] }}" style="width:60px;" placeholder="/100">{% else %}<span class="stamp stamp--default">{{ r['grade'] or '—' }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
+      <tbody>{% for r in roster %}<tr>
+        <td>{{ r['student_number'] }} — {{ r['first_name'] }} {{ r['last_name'] }}</td>
+        <td>
+          {% if r['status']=='enrolled' %}
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input type="text" name="grade_{{ r['student_id'] }}" style="width:60px;" placeholder="/100">
+            <details class="nav-menu">
+              <summary class="icon-link" title="{{ t('grade.breakdown') }}">➕</summary>
+              <div class="menu-pop">
+                <label style="font-size:12px;">{{ t('grade.coursework') }}</label>
+                <input type="number" name="cw_{{ r['student_id'] }}" min="0" max="100" step="0.5" style="width:90px;">
+                <label style="font-size:12px;">{{ t('grade.final') }}</label>
+                <input type="number" name="fin_{{ r['student_id'] }}" min="0" max="100" step="0.5" style="width:90px;">
+              </div>
+            </details>
+          </div>
+          {% else %}<span class="stamp stamp--default">{{ r['grade'] or '—' }}</span>{% endif %}
+        </td>
+      </tr>{% endfor %}</tbody>
     </table>
     <div class="actions-row"><button class="btn--primary">{{ t('grade.save') }}</button></div>
   </form>

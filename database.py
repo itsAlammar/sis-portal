@@ -171,10 +171,23 @@ CREATE TABLE IF NOT EXISTS enrollments (
     section_id      INTEGER NOT NULL REFERENCES sections(section_id),
     enrollment_date TEXT NOT NULL,
     status          TEXT NOT NULL DEFAULT 'enrolled',   -- enrolled, dropped, completed
-    numeric_mark    REAL,                                -- /100
+    numeric_mark    REAL,                                -- total /100
+    coursework_mark REAL,                                -- optional breakdown: أعمال السنة
+    final_mark      REAL,                                -- optional breakdown: الاختبار النهائي
     grade           TEXT REFERENCES grade_scale(letter),
     grade_points    REAL,
     UNIQUE(student_id, section_id)
+);
+
+CREATE TABLE IF NOT EXISTS email_log (
+    email_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    to_address TEXT NOT NULL,
+    subject    TEXT NOT NULL,
+    body       TEXT NOT NULL,
+    kind       TEXT,                 -- e.g. admission_acceptance
+    status     TEXT NOT NULL,        -- sent, failed, logged (email disabled)
+    error      TEXT,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS admission_applications (
@@ -281,6 +294,27 @@ DEFAULT_SETTINGS = {
     "vat_rate": "15",            # VAT percent, applied to non-Saudi registration fee only
     "institution_name_en": "Academy",
     "institution_name_ar": "الأكاديمية",
+    # -- outgoing email (admissions notifications) ------------------------
+    "email_enabled": "0",            # 0 = log only, 1 = actually send via SMTP
+    "auto_email_on_approval": "1",   # send the acceptance email automatically on approve
+    "smtp_host": "",
+    "smtp_port": "587",
+    "smtp_user": "",
+    "smtp_password": "",
+    "smtp_from": "",
+    "acceptance_subject": "قبولك في {institution} | Your admission to {institution}",
+    "acceptance_body": (
+        "عزيزي/عزيزتي {name}،\n"
+        "نبارك لك قبولك في {institution}.\n"
+        "رقمك الجامعي: {student_number}\n"
+        "التخصص: {major}\n"
+        "كلمة المرور المؤقتة لبوابة الطالب هي رقم هويتك الوطنية.\n\n"
+        "Dear {name},\n"
+        "Congratulations on your admission to {institution}.\n"
+        "University number: {student_number}\n"
+        "Major: {major}\n"
+        "Your temporary student-portal password is your national ID."
+    ),
 }
 
 
@@ -313,6 +347,8 @@ def _migrate(conn):
         ("terms", "add_deadline", "TEXT"),
         ("terms", "drop_deadline", "TEXT"),
         ("enrollments", "numeric_mark", "REAL"),
+        ("enrollments", "coursework_mark", "REAL"),
+        ("enrollments", "final_mark", "REAL"),
         ("fees", "course_id", "INTEGER"),
         ("fees", "tax_amount", "REAL NOT NULL DEFAULT 0"),
         ("fees", "waived_reason", "TEXT"),

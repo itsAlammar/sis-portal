@@ -1,4 +1,4 @@
-# Student Information System (SIS) · نظام معلومات الطلاب
+# SIS Portal · بوابة نظام معلومات الطلاب
 
 Bilingual (Arabic / English) SIS built with Flask + SQLite. Covers
 admissions, students, teachers, majors, courses, gender-segregated

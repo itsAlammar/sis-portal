@@ -293,3 +293,19 @@ form.inline { display: inline; }
 .stat-card .l { font-size:12.5px; color:#777; margin-top:4px; }
 .soon { opacity:0.65; }
 .badge-soon { font-size:10.5px; background:#e8e5db; color:#666; padding:1px 6px; border-radius:10px; }
+
+/* ---------- account dropdown + icon links ---------- */
+.icon-link { font-size:18px; text-decoration:none; padding:4px 8px; border-radius:8px; }
+.icon-link:hover { background: rgba(0,0,0,0.06); }
+.nav-menu { position:relative; display:inline-block; }
+.nav-menu summary { list-style:none; cursor:pointer; }
+.nav-menu summary::-webkit-details-marker { display:none; }
+.menu-pop { position:absolute; top:120%; inset-inline-end:0; background:#fff; border:1px solid #ddd;
+  border-radius:10px; padding:12px; min-width:190px; box-shadow:0 6px 18px rgba(0,0,0,.1);
+  z-index:60; display:flex; flex-direction:column; gap:10px; text-align:start; }
+.menu-pop a { text-decoration:none; color:inherit; }
+.menu-pop a:hover { text-decoration:underline; }
+
+/* ---------- status colors: green for active/ok, red for attention ---------- */
+.stamp--ok { color: #1a7a3a; border-color: #1a7a3a; background: rgba(26,122,58,0.08); }
+.stamp--attention { color: #b3261e; border-color: #b3261e; background: rgba(179,38,30,0.08); }

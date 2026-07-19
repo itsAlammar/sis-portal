@@ -43,12 +43,12 @@ class GradingService:
             raise ValidationError(f"'{letter}' is not a valid grade. Use one of: {valid}.")
         return row["grade_points"]
 
-    def _apply(self, enrollment_id, numeric_mark, letter):
+    def _apply(self, enrollment_id, numeric_mark, letter, coursework=None, final=None):
         points = self._points(letter)
         self.conn.execute(
-            "UPDATE enrollments SET numeric_mark = ?, grade = ?, grade_points = ?, "
-            "status = 'completed' WHERE enrollment_id = ?",
-            (numeric_mark, letter, points, enrollment_id),
+            "UPDATE enrollments SET numeric_mark = ?, coursework_mark = ?, final_mark = ?, "
+            "grade = ?, grade_points = ?, status = 'completed' WHERE enrollment_id = ?",
+            (numeric_mark, coursework, final, letter, points, enrollment_id),
         )
         self.conn.commit()
         row = self.conn.execute(
@@ -88,6 +88,20 @@ class GradingService:
 
     def assign_mark_by_pair(self, student_id: int, section_id: int, mark: float) -> Enrollment:
         return self.assign_mark(self._enrollment_id(student_id, section_id), mark)
+
+    def assign_breakdown_by_pair(
+        self, student_id: int, section_id: int, coursework: float, final: float,
+    ) -> Enrollment:
+        """Grade with a coursework/final split; the total becomes the mark."""
+        eid = self._enrollment_id(student_id, section_id)
+        self._lookup(eid)
+        if coursework < 0 or final < 0:
+            raise ValidationError("Marks cannot be negative.")
+        total = coursework + final
+        if total > 100:
+            raise ValidationError("Coursework + final cannot exceed 100.")
+        return self._apply(eid, total, self.letter_for_mark(total),
+                           coursework=coursework, final=final)
 
     def assign_grade_by_pair(self, student_id: int, section_id: int, value: str) -> Enrollment:
         """Accepts either a numeric mark ('88') or a letter ('W'/'A+')."""

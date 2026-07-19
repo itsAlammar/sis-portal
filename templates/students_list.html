@@ -21,7 +21,7 @@
         <td><a href="{{ url_for('students_detail', student_id=s.student_id) }}">{{ s.display_name(locale) }}</a></td>
         <td>{{ majors[s.major_id].name(locale) if s.major_id and majors.get(s.major_id) else '—' }}</td>
         <td>{{ t('common.male') if s.gender=='male' else t('common.female') }}</td>
-        <td><span class="stamp stamp--{{ status_kind(s.status) }}">{{ s.status }}</span></td>
+        <td><span class="stamp stamp--{{ status_kind(s.status) }}">{{ ts(s.status) }}</span></td>
       </tr>
       {% endfor %}
     </tbody>

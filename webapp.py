@@ -38,6 +38,7 @@ from gpa_service import GPAService
 from fee_service import FeeService
 from waitlist_service import WaitlistService
 from request_service import RequestService
+from mail_service import MailService
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SIS_SECRET_KEY") or _secrets.token_hex(32)
@@ -49,8 +50,8 @@ app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
 PER_PAGE = 25
 
 STATUS_KIND = {
-    "active": "default", "completed": "default", "paid": "default", "open": "default",
-    "graduated": "default", "waived": "default", "promoted": "default", "approved": "default",
+    "active": "ok", "completed": "ok", "paid": "ok", "open": "ok",
+    "graduated": "ok", "waived": "default", "promoted": "default", "approved": "ok",
     "enrolled": "progress", "partial": "progress", "pending": "progress", "closed": "progress",
     "waiting": "progress", "deferred": "progress",
     "suspended": "attention", "withdrawn": "attention", "dropped": "attention",
@@ -72,11 +73,21 @@ def set_lang(code):
     return redirect(request.referrer or url_for("landing"))
 
 
+def _t_prefixed(prefix, value, loc):
+    """Translate a data value (status/kind/fee type) via a prefixed key,
+    falling back to the raw value when no translation exists."""
+    key = f"{prefix}.{str(value).lower()}"
+    return i18n.t(key, loc) if key in i18n.TRANSLATIONS else value
+
+
 @app.context_processor
 def inject_globals():
     loc = locale()
     return {
         "t": lambda key, **kw: i18n.t(key, loc, **kw),
+        "ts": lambda s: _t_prefixed("status", s, loc),
+        "tk": lambda k: _t_prefixed("kind", k, loc),
+        "tf": lambda f: _t_prefixed("feetype", f, loc),
         "locale": loc,
         "dir": i18n.dir_for(loc),
         "status_kind": lambda s: STATUS_KIND.get(s, "default"),
@@ -325,6 +336,15 @@ def admissions_list():
     return render_template("admissions.html", applications=apps, majors=majors, status=status)
 
 
+def _major_name(conn, major_id):
+    if not major_id:
+        return None
+    try:
+        return MajorService(conn).get_major(major_id).name(locale())
+    except SISError:
+        return None
+
+
 @app.route("/admissions/<int:application_id>/approve", methods=["POST"])
 @staff_required("admin", "registrar")
 def admissions_approve(application_id):
@@ -336,10 +356,41 @@ def admissions_approve(application_id):
         if current:
             FeeService(conn).charge_registration_fee(student.student_id, current.term_id)
         audit("admission.approve", "student", student.student_id, student.student_number)
-        flash(f"Approved. Student number: {student.student_number}", "success")
+        flash(f"{i18n.t('status.approved', locale())} — {student.student_number}", "success")
+        # Acceptance email (automatic if enabled in Settings).
+        if get_setting(conn, "auto_email_on_approval", "1") == "1":
+            status = MailService(conn).send_acceptance(
+                student, _major_name(conn, student.major_id))
+            audit("email.acceptance", "student", student.student_id, status)
+            flash(i18n.t(f"mail.{status}", locale()), "success" if status != "failed" else "error")
     except SISError as e:
         flash(str(e), "error")
     return redirect(url_for("admissions_list"))
+
+
+@app.route("/admissions/<int:application_id>/email", methods=["POST"])
+@staff_required("admin", "registrar")
+def admissions_send_email(application_id):
+    """Manual (re)send of the acceptance email for an approved application."""
+    conn = get_db()
+    app_row = AdmissionsService(conn).get_application(application_id)
+    if app_row.status != "approved" or not app_row.student_id:
+        flash("Application is not approved yet.", "error")
+        return redirect(url_for("admissions_list"))
+    student = StudentService(conn).get_student(app_row.student_id)
+    status = MailService(conn).send_acceptance(student, _major_name(conn, student.major_id))
+    audit("email.acceptance", "student", student.student_id, f"manual {status}")
+    flash(i18n.t(f"mail.{status}", locale()), "success" if status != "failed" else "error")
+    return redirect(url_for("admissions_list", status="all"))
+
+
+@app.route("/emails")
+@staff_required("admin")
+def emails_log():
+    svc = MailService(get_db())
+    page, pages, limit, offset = paginate(svc.count())
+    return render_template("emails_log.html", entries=svc.list_log(limit=limit, offset=offset),
+                           page=page, pages=pages)
 
 
 @app.route("/admissions/<int:application_id>/reject", methods=["POST"])
@@ -867,17 +918,28 @@ def sections_submit_grades(section_id):
 
 
 def _apply_grades(section_id):
+    """Reads grade_<id> (total) or cw_<id>+fin_<id> (coursework/final
+    breakdown) fields. A filled breakdown wins over the total field."""
     grading = GradingService(get_db())
     updated, errors = 0, []
-    for key, value in request.form.items():
-        if key.startswith("grade_") and value.strip():
-            sid = int(key.replace("grade_", ""))
-            try:
-                grading.assign_grade_by_pair(sid, section_id, value.strip())
-                audit("grade.assign", "section", section_id, f"student_id={sid} mark={value.strip()}")
+    student_ids = {int(k.split("_", 1)[1]) for k in request.form
+                   if k.startswith(("grade_", "cw_", "fin_"))}
+    for sid in student_ids:
+        cw = request.form.get(f"cw_{sid}", "").strip()
+        fin = request.form.get(f"fin_{sid}", "").strip()
+        total = request.form.get(f"grade_{sid}", "").strip()
+        try:
+            if cw and fin:
+                grading.assign_breakdown_by_pair(sid, section_id, float(cw), float(fin))
+                audit("grade.assign", "section", section_id,
+                      f"student_id={sid} cw={cw} final={fin}")
                 updated += 1
-            except SISError as e:
-                errors.append(str(e))
+            elif total:
+                grading.assign_grade_by_pair(sid, section_id, total)
+                audit("grade.assign", "section", section_id, f"student_id={sid} mark={total}")
+                updated += 1
+        except (SISError, ValueError) as e:
+            errors.append(str(e))
     if updated:
         flash(f"Saved {updated} grade(s).", "success")
     if errors:
@@ -998,16 +1060,21 @@ def users_set_status(user_id):
 @staff_required("admin")
 def settings():
     conn = get_db()
+    text_keys = ("registration_fee", "vat_rate", "institution_name_en", "institution_name_ar",
+                 "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from",
+                 "acceptance_subject", "acceptance_body")
+    toggle_keys = ("lms_enabled", "email_enabled", "auto_email_on_approval")
     if request.method == "POST":
-        for key in ("registration_fee", "vat_rate", "institution_name_en", "institution_name_ar"):
+        for key in text_keys:
             if key in request.form:
                 set_setting(conn, key, request.form[key])
-        set_setting(conn, "lms_enabled", "1" if request.form.get("lms_enabled") else "0")
+        for key in toggle_keys:
+            set_setting(conn, key, "1" if request.form.get(key) else "0")
         audit("settings.update")
         flash(i18n.t("flash.saved", locale()), "success")
         return redirect(url_for("settings"))
-    keys = ("registration_fee", "vat_rate", "institution_name_en", "institution_name_ar", "lms_enabled")
-    return render_template("settings.html", settings={k: get_setting(conn, k, "") for k in keys})
+    all_keys = text_keys + toggle_keys
+    return render_template("settings.html", settings={k: get_setting(conn, k, "") for k in all_keys})
 
 
 @app.route("/audit")
@@ -1133,7 +1200,6 @@ def portal_grades():
     conn = get_db()
     sid = session["portal_student_id"]
     terms, gpa = TermService(conn), GPAService(conn)
-    year_id = request.args.get("year_id", type=int)
     term_id = request.args.get("term_id", type=int)
     rows = EnrollmentService(conn).list_student_enrollments(sid, term_id=term_id)
     by_term = {}
@@ -1141,15 +1207,18 @@ def portal_grades():
         by_term.setdefault(r["term_id"], []).append(r)
     blocks = []
     for tid, trows in sorted(by_term.items()):
-        term = terms.get_term(tid)
-        if year_id and term.academic_year_id != year_id:
-            continue
-        blocks.append((term, trows, gpa.calculate_term_gpa(sid, tid)))
+        blocks.append((terms.get_term(tid), trows, gpa.calculate_term_gpa(sid, tid)))
+    # One combined dropdown: "academic year — term".
+    years = {y.year_id: y for y in terms.list_years()}
+    term_options = []
+    for tm in terms.list_terms():
+        year = years.get(tm.academic_year_id)
+        label = f"{year.name} — {tm.display_name(locale())}" if year else tm.display_name(locale())
+        term_options.append((tm.term_id, label))
     cum = gpa.calculate_cumulative_gpa(sid)
     return render_template("portal_grades.html", blocks=blocks, cum_gpa=cum,
                            standing=gpa.get_academic_standing(cum, locale()),
-                           years=terms.list_years(), terms=terms.list_terms(),
-                           sel_year=year_id, sel_term=term_id)
+                           term_options=term_options, sel_term=term_id)
 
 
 @app.route("/portal/financial")
@@ -1177,22 +1246,6 @@ def portal_pay(fee_id):
     except SISError as e:
         flash(str(e), "error")
     return redirect(url_for("portal_financial"))
-
-
-@app.route("/portal/degree")
-@portal_login_required
-def portal_degree():
-    conn = get_db()
-    sid = session["portal_student_id"]
-    gpa = GPAService(conn)
-    student = StudentService(conn).get_student(sid)
-    major = MajorService(conn).get_major(student.major_id) if student.major_id else None
-    earned = gpa.get_earned_credit_hours(sid)
-    required = major.required_credit_hours if major else None
-    return render_template("portal_degree.html", student=student, major=major,
-                           earned=earned, required=required,
-                           remaining=gpa.get_remaining_credit_hours(sid),
-                           percent=round(earned / required * 100) if required else None)
 
 
 @app.route("/portal/services", methods=["GET", "POST"])

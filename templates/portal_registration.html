@@ -21,17 +21,16 @@
   <h2>{{ t('reg.available') }}</h2>
   {% if available %}
   <table>
-    <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('course.title') }}</th><th>{{ t('role.teacher') }}</th><th class="num">Seats</th><th class="num">{{ t('course.price') }}</th><th></th></tr></thead>
+    <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('course.title') }}</th><th>{{ t('role.teacher') }}</th><th class="num">{{ t('common.seats') }}</th><th class="num">{{ t('course.price') }}</th><th></th></tr></thead>
     <tbody>{% for r in available %}<tr>
       <td>{{ r.course.course_code }}</td>
       <td>{{ r.course.display_title(locale) }} <span class="muted">#{{ r.section.section_number }}</span></td>
-      <td>{{ r.teacher.display_name(locale) if r.teacher else 'TBD' }}</td>
+      <td>{{ r.teacher.display_name(locale) if r.teacher else t('section.tbd') }}</td>
       <td class="num">{{ r.enrolled }}/{{ r.section.capacity }}</td>
       <td class="num">{{ "%.0f"|format(r.course.price) }}</td>
       <td><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="enroll"><input type="hidden" name="section_id" value="{{ r.section.section_id }}"><button class="btn--small btn--primary">{{ t('action.enroll') }}</button></form></td>
     </tr>{% endfor %}</tbody>
   </table>
-  <p class="muted">{{ t('reg.same_gender') }}</p>
   {% else %}<p class="muted">{{ t('empty.none') }}</p>{% endif %}
 </div>
 {% endblock %}
