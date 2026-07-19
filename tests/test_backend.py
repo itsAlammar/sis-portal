@@ -391,3 +391,15 @@ def test_receipt_pdf_generates(world):
     row = fees.get_payment(payment.payment_id)
     assert row["student_id"] == world["male"].student_id
     assert row["amount_paid"] == 200
+
+
+def test_excuse_requires_a_real_recorded_absence(world):
+    """Audit fix: a portal user must not be able to raise an excuse for an
+    arbitrary section/date they were never marked absent in."""
+    conn = world["conn"]
+    from request_service import RequestService
+    sid, sec = world["male"].student_id, world["sec_m"].section_id
+    EnrollmentService(conn).enroll_student(sid, sec)
+    with pytest.raises(ValidationError):
+        RequestService(conn).submit(sid, "absence_excuse", "fake",
+                                    section_id=sec, date="2030-11-11")

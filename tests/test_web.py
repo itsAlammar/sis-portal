@@ -351,3 +351,32 @@ def test_receipt_pdf_routes_enforce_ownership(client):
     login(client, "admin", "admin-pass-1")
     r = client.get(f"/receipts/{payment.payment_id}.pdf")
     assert r.status_code == 200 and r.data[:5] == b"%PDF-"
+
+
+def test_portal_password_change_requires_current_password(client):
+    s = _make_portal_student("31")
+    login(client, s.student_number, "portal-pass-1", path="/portal/login", field="student_number")
+
+    # Wrong current password -> rejected, old password keeps working.
+    r = client.post("/portal/settings",
+                    data={"current_password": "wrong-pass-1", "password": "new-pass-123",
+                          "confirm_password": "new-pass-123",
+                          "csrf_token": _csrf(client, "/portal/settings")},
+                    follow_redirects=True)
+    assert "current password is incorrect" in r.get_data(as_text=True)
+
+    # Correct current password -> changed.
+    client.post("/portal/settings",
+                data={"current_password": "portal-pass-1", "password": "new-pass-123",
+                      "confirm_password": "new-pass-123",
+                      "csrf_token": _csrf(client, "/portal/settings")})
+    fresh = client
+    fresh.post("/portal/logout", data={"csrf_token": _csrf(fresh, "/portal/settings")})
+    r = login(fresh, s.student_number, "new-pass-123", path="/portal/login", field="student_number")
+    assert r.status_code == 302
+
+
+def test_lang_switch_ignores_external_referrer(client):
+    r = client.get("/lang/ar", headers={"Referer": "https://evil.example/phish"})
+    assert r.status_code == 302
+    assert r.headers["Location"] in ("/", "http://localhost/")

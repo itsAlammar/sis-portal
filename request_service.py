@@ -28,6 +28,16 @@ class RequestService:
         if kind == "absence_excuse":
             if not section_id or not date:
                 raise ValidationError("An absence excuse needs the section and the date.")
+            # The excuse must point at a real absent/late record of this
+            # student — not an arbitrary section or date.
+            recorded = self.conn.execute(
+                """SELECT 1 FROM attendance
+                   WHERE student_id = ? AND section_id = ? AND date = ?
+                     AND status IN ('absent', 'late')""",
+                (student_id, section_id, date),
+            ).fetchone()
+            if not recorded:
+                raise ValidationError("No absence is recorded for that section and date.")
             duplicate = self.conn.execute(
                 """SELECT 1 FROM service_requests
                    WHERE student_id = ? AND kind = 'absence_excuse' AND section_id = ?

@@ -72,7 +72,7 @@ def locale():
 @app.route("/lang/<code>")
 def set_lang(code):
     session["lang"] = i18n.normalize(code)
-    return redirect(request.referrer or url_for("landing"))
+    return redirect(_safe_next(request.referrer) or url_for("landing"))
 
 
 def _t_prefixed(prefix, value, loc):
@@ -130,7 +130,7 @@ def close_db(exception=None):
 @app.errorhandler(SISError)
 def handle_sis_error(e):
     flash(str(e), "error")
-    return redirect(request.referrer or url_for("landing"))
+    return redirect(_safe_next(request.referrer) or url_for("landing"))
 
 
 def _departments(conn):
@@ -257,7 +257,7 @@ def staff_setup():
     if request.method == "POST":
         pw = request.form.get("password", "")
         if pw != request.form.get("confirm_password", ""):
-            flash("Passwords do not match.", "error")
+            flash(i18n.t("flash.pw_mismatch", locale()), "error")
         else:
             try:
                 user = auth.create_user(request.form.get("username", ""), pw, "admin")
@@ -377,7 +377,7 @@ def admissions_send_email(application_id):
     conn = get_db()
     app_row = AdmissionsService(conn).get_application(application_id)
     if app_row.status != "approved" or not app_row.student_id:
-        flash("Application is not approved yet.", "error")
+        flash(i18n.t("adm.not_approved", locale()), "error")
         return redirect(url_for("admissions_list"))
     student = StudentService(conn).get_student(app_row.student_id)
     status = MailService(conn).send_acceptance(student, _major_name(conn, student.major_id))
@@ -402,7 +402,7 @@ def admissions_reject(application_id):
         AdmissionsService(get_db()).reject(application_id, reviewer=_actor(),
                                             note=request.form.get("note", ""))
         audit("admission.reject", "application", application_id)
-        flash("Application rejected.", "success")
+        flash(i18n.t("adm.rejected", locale()), "success")
     except SISError as e:
         flash(str(e), "error")
     return redirect(url_for("admissions_list"))
@@ -466,7 +466,7 @@ def students_add():
                 advisor_id=int(f["advisor_id"]) if f.get("advisor_id") else None,
             )
             audit("student.create", "student", s.student_id, s.student_number)
-            flash(f"Student {s.student_number} added.", "success")
+            flash(i18n.t("flash.added", locale(), code=s.student_number), "success")
             return redirect(url_for("students_detail", student_id=s.student_id))
         except SISError as e:
             flash(str(e), "error")
@@ -650,15 +650,15 @@ def students_import():
     if request.method == "POST":
         upload = request.files.get("csv_file")
         if not upload or not upload.filename:
-            flash("Please choose a CSV file.", "error")
+            flash(i18n.t("flash.choose_csv", locale()), "error")
             return redirect(url_for("students_import"))
         text = io.StringIO(upload.stream.read().decode("utf-8-sig"))
         ok, errors = csv_io.import_students(conn, text)
         if ok:
             audit("student.import", "student", None, f"{len(ok)} imported")
-            flash(f"Imported {len(ok)} student(s).", "success")
+            flash(i18n.t("flash.imported", locale(), n=len(ok)), "success")
         if errors:
-            flash(f"{len(errors)} row(s) failed: " + " | ".join(errors[:5]), "error")
+            flash(i18n.t("flash.rows_failed", locale(), n=len(errors), errors=" | ".join(errors[:5])), "error")
         return redirect(url_for("students_list"))
     return render_template("import_form.html", entity="students",
                            template_url=url_for("students_import_template"))
@@ -732,14 +732,15 @@ def teachers_import():
     if request.method == "POST":
         upload = request.files.get("csv_file")
         if not upload or not upload.filename:
-            flash("Please choose a CSV file.", "error")
+            flash(i18n.t("flash.choose_csv", locale()), "error")
             return redirect(url_for("teachers_import"))
         text = io.StringIO(upload.stream.read().decode("utf-8-sig"))
         ok, errors = csv_io.import_teachers(conn, text)
         if ok:
-            flash(f"Imported {len(ok)} teacher(s).", "success")
+            audit("teacher.import", "teacher", None, f"{len(ok)} imported")
+            flash(i18n.t("flash.imported", locale(), n=len(ok)), "success")
         if errors:
-            flash(f"{len(errors)} row(s) failed: " + " | ".join(errors[:5]), "error")
+            flash(i18n.t("flash.rows_failed", locale(), n=len(errors), errors=" | ".join(errors[:5])), "error")
         return redirect(url_for("teachers_list"))
     return render_template("import_form.html", entity="teachers",
                            template_url=url_for("teachers_import_template"))
@@ -781,7 +782,7 @@ def courses_add():
                 description=f.get("description", ""),
             )
             audit("course.create", "course", c.course_id, c.course_code)
-            flash(f"Course {c.course_code} added.", "success")
+            flash(i18n.t("flash.added", locale(), code=c.course_code), "success")
             return redirect(url_for("courses_detail", course_id=c.course_id))
         except SISError as e:
             flash(str(e), "error")
@@ -815,6 +816,7 @@ def courses_assign_teacher(course_id):
 @staff_required("admin", "registrar")
 def courses_remove_teacher(course_id, teacher_id):
     CourseService(get_db()).remove_teacher(course_id, teacher_id)
+    audit("course.teacher_remove", "course", course_id, f"teacher_id={teacher_id}")
     return redirect(url_for("courses_detail", course_id=course_id))
 
 
@@ -823,6 +825,7 @@ def courses_remove_teacher(course_id, teacher_id):
 def courses_add_prereq(course_id):
     try:
         CourseService(get_db()).add_prerequisite(course_id, int(request.form["prerequisite_course_id"]))
+        audit("course.prereq_add", "course", course_id, request.form["prerequisite_course_id"])
         flash(i18n.t("flash.saved", locale()), "success")
     except SISError as e:
         flash(str(e), "error")
@@ -843,14 +846,15 @@ def courses_import():
     if request.method == "POST":
         upload = request.files.get("csv_file")
         if not upload or not upload.filename:
-            flash("Please choose a CSV file.", "error")
+            flash(i18n.t("flash.choose_csv", locale()), "error")
             return redirect(url_for("courses_import"))
         text = io.StringIO(upload.stream.read().decode("utf-8-sig"))
         ok, errors = csv_io.import_courses(conn, text)
         if ok:
-            flash(f"Imported {len(ok)} course(s).", "success")
+            audit("course.import", "course", None, f"{len(ok)} imported")
+            flash(i18n.t("flash.imported", locale(), n=len(ok)), "success")
         if errors:
-            flash(f"{len(errors)} row(s) failed: " + " | ".join(errors[:5]), "error")
+            flash(i18n.t("flash.rows_failed", locale(), n=len(errors), errors=" | ".join(errors[:5])), "error")
         return redirect(url_for("courses_list"))
     return render_template("import_form.html", entity="courses",
                            template_url=url_for("courses_import_template"))
@@ -912,12 +916,13 @@ def terms_add():
         year = None
         if f.get("year_name"):
             year = TermService(conn).get_or_create_year(f["year_name"]).year_id
-        TermService(conn).add_term(
+        term = TermService(conn).add_term(
             f["name"], f["start_date"], f["end_date"], name_ar=f.get("name_ar", ""),
             academic_year_id=year, kind=f.get("kind", "regular"),
             add_deadline=f.get("add_deadline") or None, drop_deadline=f.get("drop_deadline") or None,
             grades_deadline=f.get("grades_deadline") or None,
         )
+        audit("term.create", "term", term.term_id, term.name)
         flash(i18n.t("flash.saved", locale()), "success")
     except SISError as e:
         flash(str(e), "error")
@@ -1078,7 +1083,7 @@ def _apply_grades(section_id, enforce_deadline=False):
         except (SISError, ValueError) as e:
             errors.append(str(e))
     if updated:
-        flash(f"Saved {updated} grade(s).", "success")
+        flash(i18n.t("flash.grades_saved", locale(), n=updated), "success")
     if errors:
         flash("; ".join(errors), "error")
 
@@ -1269,7 +1274,7 @@ def users_set_status(user_id):
         target = auth.get_user(user_id)
         if status == "disabled" and (target.user_id == me.user_id or
                                      (target.role == "admin" and auth.count_admins() <= 1)):
-            flash("You can't disable the last active admin (or yourself).", "error")
+            flash(i18n.t("flash.last_admin_disable", locale()), "error")
         else:
             auth.set_user_status(user_id, status)
             audit("user.status", "user", user_id, status)
@@ -1356,6 +1361,8 @@ def portal_login():
 
 @app.route("/portal/logout", methods=["POST"])
 def portal_logout():
+    if session.get("portal_student_id"):
+        audit("portal.logout", "student", session["portal_student_id"])
     session.pop("portal_student_id", None)
     return redirect(url_for("landing"))
 
@@ -1578,13 +1585,20 @@ def portal_settings():
     conn = get_db()
     sid = session["portal_student_id"]
     if request.method == "POST":
+        auth = AuthService(conn)
+        student = StudentService(conn).get_student(sid)
         pw = request.form.get("password", "")
-        if pw and pw == request.form.get("confirm_password", ""):
-            AuthService(conn).set_student_password(sid, pw)
+        # Changing the password requires proving the current one, so a
+        # left-open session can't be silently taken over.
+        if not auth.authenticate_student(student.student_number,
+                                         request.form.get("current_password", "")):
+            flash(i18n.t("flash.wrong_current_pw", locale()), "error")
+        elif pw and pw == request.form.get("confirm_password", ""):
+            auth.set_student_password(sid, pw)
             audit("portal.password_change", "student", sid)
             flash(i18n.t("flash.saved", locale()), "success")
         else:
-            flash("Passwords empty or do not match.", "error")
+            flash(i18n.t("flash.pw_mismatch", locale()), "error")
         return redirect(url_for("portal_settings"))
     return render_template("portal_settings.html", student=StudentService(conn).get_student(sid))
 

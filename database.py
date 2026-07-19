@@ -300,6 +300,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_fee ON payments(fee_id);
 CREATE INDEX IF NOT EXISTS idx_waitlist_section ON waitlist(section_id);
 CREATE INDEX IF NOT EXISTS idx_applications_status ON admission_applications(status);
 CREATE INDEX IF NOT EXISTS idx_requests_status ON service_requests(status);
+CREATE INDEX IF NOT EXISTS idx_requests_student ON service_requests(student_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_section ON attendance(section_id, date);
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at);
 """
