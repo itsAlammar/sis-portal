@@ -1,4 +1,3 @@
 flask>=3.0
 gunicorn>=21.0
-# Optional: PDF transcript export
-# reportlab>=4.0
+reportlab>=4.0   # PDF transcript export
