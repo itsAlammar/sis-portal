@@ -7,10 +7,15 @@ Direct letter entry (W, I, or an explicit letter) is still supported.
 """
 
 import sqlite3
-from typing import Dict, List
+from datetime import date
+from typing import Dict, List, Optional
 
-from exceptions import NotFoundError, ValidationError
+from exceptions import DeadlineError, NotFoundError, ValidationError
 from models import Enrollment
+
+# Component maxima: coursework (أعمال السنة) and final exam are each /50.
+COURSEWORK_MAX = 50
+FINAL_MAX = 50
 
 
 class GradingService:
@@ -92,16 +97,43 @@ class GradingService:
     def assign_breakdown_by_pair(
         self, student_id: int, section_id: int, coursework: float, final: float,
     ) -> Enrollment:
-        """Grade with a coursework/final split; the total becomes the mark."""
+        """Grade with a coursework/final split; each component is out of 50
+        and the total (out of 100) becomes the mark."""
         eid = self._enrollment_id(student_id, section_id)
         self._lookup(eid)
         if coursework < 0 or final < 0:
             raise ValidationError("Marks cannot be negative.")
+        if coursework > COURSEWORK_MAX:
+            raise ValidationError(f"Coursework mark is out of {COURSEWORK_MAX}.")
+        if final > FINAL_MAX:
+            raise ValidationError(f"Final exam mark is out of {FINAL_MAX}.")
         total = coursework + final
-        if total > 100:
-            raise ValidationError("Coursework + final cannot exceed 100.")
         return self._apply(eid, total, self.letter_for_mark(total),
                            coursework=coursework, final=final)
+
+    # -- grade-entry deadline (per term) ----------------------------------
+    def grades_deadline_for_section(self, section_id: int) -> Optional[str]:
+        row = self.conn.execute(
+            """SELECT t.grades_deadline FROM sections s
+               JOIN terms t ON t.term_id = s.term_id WHERE s.section_id = ?""",
+            (section_id,),
+        ).fetchone()
+        return row["grades_deadline"] if row else None
+
+    def editing_locked(self, section_id: int, as_of: Optional[str] = None) -> bool:
+        """True once the term's grades deadline has passed. No deadline set
+        means editing stays open."""
+        deadline = self.grades_deadline_for_section(section_id)
+        if not deadline:
+            return False
+        return (as_of or date.today().isoformat()) > deadline
+
+    def check_editing_open(self, section_id: int, as_of: Optional[str] = None) -> None:
+        if self.editing_locked(section_id, as_of):
+            raise DeadlineError(
+                f"Grade editing is locked (deadline "
+                f"{self.grades_deadline_for_section(section_id)} has passed)."
+            )
 
     def assign_grade_by_pair(self, student_id: int, section_id: int, value: str) -> Enrollment:
         """Accepts either a numeric mark ('88') or a letter ('W'/'A+')."""

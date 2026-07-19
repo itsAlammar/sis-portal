@@ -121,7 +121,8 @@ class SectionService:
         not a domain entity, so it skips the models layer."""
         return self.conn.execute(
             """SELECT s.student_id, s.student_number, s.first_name, s.last_name,
-                      e.enrollment_id, e.status, e.grade, e.enrollment_date
+                      e.enrollment_id, e.status, e.grade, e.enrollment_date,
+                      e.numeric_mark, e.coursework_mark, e.final_mark
                FROM enrollments e
                JOIN students s ON s.student_id = e.student_id
                WHERE e.section_id = ?

@@ -802,6 +802,7 @@ def terms_add():
             f["name"], f["start_date"], f["end_date"], name_ar=f.get("name_ar", ""),
             academic_year_id=year, kind=f.get("kind", "regular"),
             add_deadline=f.get("add_deadline") or None, drop_deadline=f.get("drop_deadline") or None,
+            grades_deadline=f.get("grades_deadline") or None,
         )
         flash(i18n.t("flash.saved", locale()), "success")
     except SISError as e:
@@ -917,10 +918,18 @@ def sections_submit_grades(section_id):
     return redirect(url_for("sections_detail", section_id=section_id))
 
 
-def _apply_grades(section_id):
+def _apply_grades(section_id, enforce_deadline=False):
     """Reads grade_<id> (total) or cw_<id>+fin_<id> (coursework/final
-    breakdown) fields. A filled breakdown wins over the total field."""
+    breakdown) fields. A filled breakdown wins over the total field.
+    With enforce_deadline (teacher side) nothing is saved after the term's
+    grades deadline; registrar/admin can still correct grades."""
     grading = GradingService(get_db())
+    if enforce_deadline:
+        try:
+            grading.check_editing_open(section_id)
+        except SISError as e:
+            flash(str(e), "error")
+            return
     updated, errors = 0, []
     student_ids = {int(k.split("_", 1)[1]) for k in request.form
                    if k.startswith(("grade_", "cw_", "fin_"))}
@@ -976,17 +985,20 @@ def teach_dashboard():
 def teach_section(section_id):
     conn = get_db()
     section = _own_section_or_403(section_id)
+    grading = GradingService(conn)
     return render_template("teach_section.html", section=section,
                            course=CourseService(conn).get_course(section.course_id),
                            term=TermService(conn).get_term(section.term_id),
-                           roster=SectionService(conn).get_roster(section_id))
+                           roster=SectionService(conn).get_roster(section_id),
+                           locked=grading.editing_locked(section_id),
+                           grades_deadline=grading.grades_deadline_for_section(section_id))
 
 
 @app.route("/teach/sections/<int:section_id>/grades", methods=["POST"])
 @staff_required("teacher")
 def teach_submit_grades(section_id):
     _own_section_or_403(section_id)
-    _apply_grades(section_id)
+    _apply_grades(section_id, enforce_deadline=True)
     return redirect(url_for("teach_section", section_id=section_id))
 
 

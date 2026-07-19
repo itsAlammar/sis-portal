@@ -146,7 +146,8 @@ CREATE TABLE IF NOT EXISTS terms (
     end_date         TEXT NOT NULL,
     is_current       INTEGER NOT NULL DEFAULT 0,
     add_deadline     TEXT,
-    drop_deadline    TEXT
+    drop_deadline    TEXT,
+    grades_deadline  TEXT    -- after this date grade entry/edit is locked
 );
 
 CREATE TABLE IF NOT EXISTS sections (
@@ -346,6 +347,7 @@ def _migrate(conn):
         ("terms", "kind", "TEXT NOT NULL DEFAULT 'regular'"),
         ("terms", "add_deadline", "TEXT"),
         ("terms", "drop_deadline", "TEXT"),
+        ("terms", "grades_deadline", "TEXT"),
         ("enrollments", "numeric_mark", "REAL"),
         ("enrollments", "coursework_mark", "REAL"),
         ("enrollments", "final_mark", "REAL"),

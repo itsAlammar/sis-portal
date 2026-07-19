@@ -52,6 +52,7 @@ class TermService:
         name_ar: str = "", academic_year_id: Optional[int] = None,
         kind: str = "regular",
         add_deadline: Optional[str] = None, drop_deadline: Optional[str] = None,
+        grades_deadline: Optional[str] = None,
     ) -> Term:
         if not name.strip():
             raise ValidationError("Term name is required.")
@@ -60,10 +61,12 @@ class TermService:
         try:
             cur = self.conn.execute(
                 """INSERT INTO terms (name, name_ar, academic_year_id, kind, start_date,
-                                       end_date, is_current, add_deadline, drop_deadline)
-                   VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)""",
+                                       end_date, is_current, add_deadline, drop_deadline,
+                                       grades_deadline)
+                   VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
                 (name.strip(), name_ar.strip() or None, academic_year_id, kind,
-                 start_date, end_date, add_deadline or None, drop_deadline or None),
+                 start_date, end_date, add_deadline or None, drop_deadline or None,
+                 grades_deadline or None),
             )
         except sqlite3.IntegrityError as e:
             raise DuplicateError(f"A term named '{name}' already exists.") from e
@@ -72,8 +75,8 @@ class TermService:
 
     def update_term(self, term_id: int, **fields) -> Term:
         self.get_term(term_id)
-        allowed = {"add_deadline", "drop_deadline", "start_date", "end_date",
-                   "name_ar", "academic_year_id", "kind"}
+        allowed = {"add_deadline", "drop_deadline", "grades_deadline", "start_date",
+                   "end_date", "name_ar", "academic_year_id", "kind"}
         updates = {k: (v if v != "" else None) for k, v in fields.items() if k in allowed}
         if not updates:
             return self.get_term(term_id)

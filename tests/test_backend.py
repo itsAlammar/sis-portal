@@ -166,3 +166,37 @@ def test_admission_reject(world):
     adm.reject(app.application_id, reviewer="staff:admin", note="Incomplete documents")
     assert adm.get_application(app.application_id).status == "rejected"
     assert adm.count_pending() == 0
+
+
+# -- /50 components and grades deadline -----------------------------------
+
+def test_breakdown_components_are_out_of_50(world):
+    conn = world["conn"]
+    EnrollmentService(conn).enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    g = GradingService(conn)
+    with pytest.raises(ValidationError):
+        g.assign_breakdown_by_pair(world["male"].student_id, world["sec_m"].section_id, 60, 30)
+    with pytest.raises(ValidationError):
+        g.assign_breakdown_by_pair(world["male"].student_id, world["sec_m"].section_id, 30, 55)
+    e = g.assign_breakdown_by_pair(world["male"].student_id, world["sec_m"].section_id, 50, 50)
+    assert e.numeric_mark == 100 and e.grade == "A+"
+
+
+def test_teacher_can_regrade_before_deadline_then_locked_after(world):
+    conn = world["conn"]
+    from term_service import TermService
+    from exceptions import DeadlineError
+    EnrollmentService(conn).enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    g = GradingService(conn)
+
+    # Deadline in the future: grade, then edit again freely.
+    TermService(conn).update_term(world["term"].term_id, grades_deadline="2030-12-01")
+    g.assign_breakdown_by_pair(world["male"].student_id, world["sec_m"].section_id, 40, 30)
+    assert not g.editing_locked(world["sec_m"].section_id, as_of="2030-11-30")
+    e = g.assign_breakdown_by_pair(world["male"].student_id, world["sec_m"].section_id, 45, 40)
+    assert e.numeric_mark == 85  # edit applied
+
+    # After the deadline: locked.
+    assert g.editing_locked(world["sec_m"].section_id, as_of="2030-12-02")
+    with pytest.raises(DeadlineError):
+        g.check_editing_open(world["sec_m"].section_id, as_of="2030-12-02")

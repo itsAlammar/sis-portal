@@ -40,7 +40,8 @@ def seed(conn):
                           academic_year_id=year.year_id)
     spring = terms.add_term("Spring 2026", "2026-01-15", "2026-05-10", name_ar="الفصل الثاني",
                             academic_year_id=year.year_id,
-                            add_deadline="2026-08-15", drop_deadline="2026-11-01")
+                            add_deadline="2026-08-15", drop_deadline="2026-11-01",
+                            grades_deadline="2026-12-31")
     terms.add_term("Summer 2026", "2026-06-01", "2026-07-31", name_ar="الفصل الصيفي",
                    academic_year_id=year.year_id, kind="summer")
     terms.set_current_term(spring.term_id)

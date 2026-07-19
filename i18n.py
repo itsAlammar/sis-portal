@@ -141,8 +141,13 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "mail.body": {"en": "Acceptance message (placeholders: {name} {student_number} {major} {national_id} {institution})",
                   "ar": "نص رسالة القبول (المتغيرات: {name} {student_number} {major} {national_id} {institution})"},
     "grade.breakdown": {"en": "Grade breakdown", "ar": "تفاصيل الدرجة"},
-    "grade.coursework": {"en": "Coursework", "ar": "أعمال السنة"},
-    "grade.final": {"en": "Final exam", "ar": "الاختبار النهائي"},
+    "grade.coursework": {"en": "Coursework (/50)", "ar": "أعمال السنة (من 50)"},
+    "grade.final": {"en": "Final exam (/50)", "ar": "الاختبار النهائي (من 50)"},
+    "grade.locked_msg": {"en": "Grade editing is locked — the deadline ({date}) has passed.",
+                         "ar": "تعديل الدرجات مقفل — انتهى الموعد المحدد ({date})."},
+    "grade.open_until": {"en": "Grades can be added or edited until {date}.",
+                         "ar": "يمكن إضافة وتعديل الدرجات حتى {date}."},
+    "term.grades_deadline": {"en": "Grades lock date", "ar": "تاريخ قفل الدرجات"},
 
     # -- record statuses --------------------------------------------------
     "status.active": {"en": "Active", "ar": "نشط"},

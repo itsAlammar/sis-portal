@@ -187,6 +187,7 @@ class Term:
     is_current: bool
     add_deadline: Optional[str] = None
     drop_deadline: Optional[str] = None
+    grades_deadline: Optional[str] = None
 
     def display_name(self, locale="en") -> str:
         if locale == "ar" and self.name_ar:
@@ -199,6 +200,7 @@ class Term:
             row["term_id"], row["name"], _g(row, "name_ar"), _g(row, "academic_year_id"),
             _g(row, "kind", "regular"), row["start_date"], row["end_date"],
             bool(row["is_current"]), _g(row, "add_deadline"), _g(row, "drop_deadline"),
+            _g(row, "grades_deadline"),
         )
 
 
