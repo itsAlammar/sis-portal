@@ -315,3 +315,10 @@ form.inline { display: inline; }
   padding:5px 12px; border:1.5px dashed #8a1c1c; border-radius:20px; color:#8a1c1c;
   text-decoration:none; }
 .lms-chip:hover { background: rgba(138,28,28,0.07); }
+
+/* ---------- buttons inside the dark sidebar must be light ---------- */
+.sidebar .btn--ghost, .sidebar button {
+  color: #f5f4ef; border: 1px solid rgba(245,244,239,.45);
+  background: transparent; border-radius: 8px; padding: 6px 14px; cursor: pointer;
+}
+.sidebar .btn--ghost:hover, .sidebar button:hover { background: rgba(245,244,239,.12); }
