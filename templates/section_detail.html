@@ -5,7 +5,17 @@
   <span class="stamp stamp--default">{{ t('common.male') if section.gender=='male' else t('common.female') }}</span></div>
 <div class="grid-2">
   <div class="card">
-    <h2>{{ t('action.enroll') }}</h2>
+    <h2>{{ t('role.teacher') }}</h2>
+    <p class="muted">{{ teacher.display_name(locale) if teacher else t('section.tbd') }}</p>
+    <form method="post" action="{{ url_for('sections_set_teacher', section_id=section.section_id) }}" style="display:flex; gap:6px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <select name="teacher_id" required>
+        {% for tt in teachers_all %}<option value="{{ tt.teacher_id }}" {{ 'selected' if teacher and tt.teacher_id==teacher.teacher_id }}>{{ tt.display_name(locale) }} ({{ t('common.male') if tt.gender=='male' else t('common.female') }})</option>{% endfor %}
+      </select>
+      <button class="btn--small">{{ t('action.update') }}</button>
+    </form>
+
+    <h2 style="margin-top:18px;">{{ t('action.enroll') }}</h2>
     {% if eligible_students %}
     <form method="post" action="{{ url_for('sections_enroll_student', section_id=section.section_id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

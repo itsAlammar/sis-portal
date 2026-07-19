@@ -200,3 +200,33 @@ def test_teacher_can_regrade_before_deadline_then_locked_after(world):
     assert g.editing_locked(world["sec_m"].section_id, as_of="2030-12-02")
     with pytest.raises(DeadlineError):
         g.check_editing_open(world["sec_m"].section_id, as_of="2030-12-02")
+
+
+def test_reassigned_section_moves_to_new_teachers_portal(world):
+    conn = world["conn"]
+    from section_service import SectionService
+    sections = SectionService(conn)
+    sec = world["sec_m"]
+    # Currently belongs to t_m; reassign to t_f.
+    assert sec.section_id in [s.section_id for s in sections.list_sections(teacher_id=world["t_m"].teacher_id)]
+    sections.update_section(sec.section_id, teacher_id=world["t_f"].teacher_id)
+    assert sec.section_id in [s.section_id for s in sections.list_sections(teacher_id=world["t_f"].teacher_id)]
+    assert sec.section_id not in [s.section_id for s in sections.list_sections(teacher_id=world["t_m"].teacher_id)]
+
+
+def test_section_broadcast_email_logged_per_student(world):
+    conn = world["conn"]
+    from mail_service import MailService
+    EnrollmentService(conn).enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    rows = conn.execute(
+        """SELECT s.email FROM enrollments e JOIN students s ON s.student_id = e.student_id
+           WHERE e.section_id = ? AND e.status IN ('enrolled','completed')""",
+        (world["sec_m"].section_id,),
+    ).fetchall()
+    mail = MailService(conn)
+    for r in rows:
+        assert mail.send(r["email"], "تنبيه", "الاختبار غداً", kind="section_email") == "logged"
+    logged = conn.execute(
+        "SELECT COUNT(*) c FROM email_log WHERE kind = 'section_email'"
+    ).fetchone()["c"]
+    assert logged == len(rows) == 1

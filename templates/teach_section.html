@@ -51,4 +51,14 @@
   </form>
   {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>
+
+<div class="card" style="margin-top:16px; max-width:640px;">
+  <h2>✉️ {{ t('mail.section_email') }}</h2>
+  <form method="post" action="{{ url_for('teach_email_section', section_id=section.section_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>{{ t('mail.subject_line') }}</label><input name="subject" required>
+    <label>{{ t('mail.message') }}</label><textarea name="body" rows="4" required></textarea>
+    <div class="actions-row"><button class="btn--primary">{{ t('action.submit') }}</button></div>
+  </form>
+</div>
 {% endblock %}

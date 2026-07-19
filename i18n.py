@@ -148,6 +148,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "grade.open_until": {"en": "Grades can be added or edited until {date}.",
                          "ar": "يمكن إضافة وتعديل الدرجات حتى {date}."},
     "term.grades_deadline": {"en": "Grades lock date", "ar": "تاريخ قفل الدرجات"},
+    "mail.section_email": {"en": "Email all students in this section",
+                           "ar": "إرسال إيميل لطلاب الشعبة"},
+    "mail.subject_line": {"en": "Subject", "ar": "الموضوع"},
+    "mail.message": {"en": "Message", "ar": "نص الرسالة"},
+    "mail.broadcast_done": {"en": "Message queued for {n} student(s).",
+                            "ar": "أُرسلت الرسالة إلى {n} من الطلاب."},
 
     # -- record statuses --------------------------------------------------
     "status.active": {"en": "Active", "ar": "نشط"},

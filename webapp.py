@@ -877,8 +877,22 @@ def sections_detail(section_id):
                 if s.student_id not in enrolled_ids and s.gender == section.gender]
     return render_template("section_detail.html", section=section, course=course,
                            teacher=teachers.get_teacher(section.teacher_id) if section.teacher_id else None,
+                           teachers_all=teachers.list_teachers(status="active"),
                            roster=roster, eligible_students=eligible,
                            waitlist_entries=WaitlistService(conn).list_for_section(section_id))
+
+
+@app.route("/sections/<int:section_id>/teacher", methods=["POST"])
+@staff_required("admin", "registrar")
+def sections_set_teacher(section_id):
+    """Reassign the section's teacher; it moves to the new teacher's
+    portal immediately (the portal reads live from sections.teacher_id)."""
+    conn = get_db()
+    teacher_id = int(request.form["teacher_id"])
+    SectionService(conn).update_section(section_id, teacher_id=teacher_id)
+    audit("section.teacher", "section", section_id, f"teacher_id={teacher_id}")
+    flash(i18n.t("flash.saved", locale()), "success")
+    return redirect(url_for("sections_detail", section_id=section_id))
 
 
 @app.route("/sections/<int:section_id>/enroll", methods=["POST"])
@@ -999,6 +1013,32 @@ def teach_section(section_id):
 def teach_submit_grades(section_id):
     _own_section_or_403(section_id)
     _apply_grades(section_id, enforce_deadline=True)
+    return redirect(url_for("teach_section", section_id=section_id))
+
+
+@app.route("/teach/sections/<int:section_id>/email", methods=["POST"])
+@staff_required("teacher")
+def teach_email_section(section_id):
+    """Group email from the teacher to every enrolled student in their
+    own section (logged per recipient in the email log)."""
+    conn = get_db()
+    _own_section_or_403(section_id)
+    subject = request.form.get("subject", "").strip()
+    body = request.form.get("body", "").strip()
+    if not subject or not body:
+        flash(i18n.t("common.required_note", locale()), "error")
+        return redirect(url_for("teach_section", section_id=section_id))
+    rows = conn.execute(
+        """SELECT s.email FROM enrollments e
+           JOIN students s ON s.student_id = e.student_id
+           WHERE e.section_id = ? AND e.status IN ('enrolled', 'completed')""",
+        (section_id,),
+    ).fetchall()
+    mail = MailService(conn)
+    for r in rows:
+        mail.send(r["email"], subject, body, kind="section_email")
+    audit("email.section", "section", section_id, f"{len(rows)} recipients")
+    flash(i18n.t("mail.broadcast_done", locale(), n=len(rows)), "success")
     return redirect(url_for("teach_section", section_id=section_id))
 
 
