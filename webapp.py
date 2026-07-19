@@ -501,6 +501,8 @@ def students_detail(student_id):
         major=major, advisor=advisor,
         teachers=TeacherService(conn).list_teachers(status="active"),
         majors=MajorService(conn).list_majors(status=None),
+        attendance_rows=AttendanceService(conn).student_summary(student_id),
+        requests_rows=RequestService(conn).list_for_student(student_id),
     )
 
 

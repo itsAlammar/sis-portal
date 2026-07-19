@@ -18,6 +18,8 @@
       <div class="ledger-row"><span class="label">{{ t('common.mobile') }}</span><span class="value" style="font-weight:400;">{{ student.phone or '—' }}</span></div>
       <div class="ledger-row"><span class="label">{{ t('common.gender') }}</span><span class="value">{{ t('common.male') if student.gender=='male' else t('common.female') }}</span></div>
       <div class="ledger-row"><span class="label">{{ t('common.nationality') }}</span><span class="value">{{ t('common.saudi') if student.is_saudi else t('common.non_saudi') }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('common.date_of_birth') }}</span><span class="value">{{ student.date_of_birth or '—' }}</span></div>
+      <div class="ledger-row"><span class="label">{{ t('term.start') }}</span><span class="value">{{ student.enrollment_date }}</span></div>
       <div class="ledger-row"><span class="label">{{ t('student.major') }}</span><span class="value">{{ major.name(locale) if major else '—' }}</span></div>
       <div class="ledger-row"><span class="label">{{ t('student.advisor') }}</span><span class="value">{{ advisor.display_name(locale) if advisor else '—' }}</span></div>
       <form method="post" action="{{ url_for('students_set_advisor', student_id=student.student_id) }}" style="margin-top:8px; display:flex; gap:6px;">
@@ -43,6 +45,31 @@
       <div class="ledger-row"><span class="label">{{ t('student.balance') }}</span><span class="value">{{ "%.2f"|format(balance) }} SAR</span></div>
     </div>
   </div>
+  <div>
+  <div class="card">
+    <h2>{{ t('att.title') }}</h2>
+    {% if attendance_rows %}
+    <table>
+      <thead><tr><th>{{ t('course.code') }}</th><th class="num">{{ t('att.sessions') }}</th><th class="num">{{ t('att.absent') }}</th><th class="num">{{ t('att.late') }}</th><th class="num">{{ t('att.excused') }}</th></tr></thead>
+      <tbody>{% for r in attendance_rows %}<tr>
+        <td>{{ r['course_code'] }}</td><td class="num">{{ r['total'] }}</td>
+        <td class="num"><span class="stamp stamp--{{ 'attention' if r['absent'] else 'ok' }}">{{ r['absent'] }}</span></td>
+        <td class="num">{{ r['late'] }}</td><td class="num">{{ r['excused'] }}</td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="muted">{{ t('empty.none') }}</p>{% endif %}
+  </div>
+
+  <div class="card">
+    <h2>{{ t('nav.other_services') }}</h2>
+    {% if requests_rows %}
+    <table>
+      <thead><tr><th>{{ t('common.type') }}</th><th>{{ t('common.status') }}</th></tr></thead>
+      <tbody>{% for r in requests_rows %}<tr><td>{{ tk(r.kind) }}</td><td><span class="stamp stamp--{{ status_kind(r.status) }}">{{ ts(r.status) }}</span></td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="muted">{{ t('empty.none') }}</p>{% endif %}
+  </div>
+
   <div class="card">
     <h2>{{ t('nav.transcript') }}</h2>
     {% for term, rows, term_gpa in transcript_terms %}
@@ -53,5 +80,6 @@
       </table>
     {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endfor %}
   </div>
+</div>
 </div>
 {% endblock %}
