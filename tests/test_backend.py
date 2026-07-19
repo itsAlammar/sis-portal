@@ -260,3 +260,52 @@ def test_pdf_transcript_generates(world):
     buf = pdf_reports.generate_transcript_pdf(conn, world["male"].student_id)
     data = buf.read()
     assert data[:5] == b"%PDF-" and len(data) > 800
+
+
+# -- staff role management -------------------------------------------------
+
+def test_update_user_role_and_last_admin_guard(world):
+    conn = world["conn"]
+    auth = AuthService(conn)
+    boss = auth.create_user("boss", "boss-pass-123", "admin", full_name="مدير")
+    clerk = auth.create_user("clerk", "clerk-pass-123", "registrar", full_name="موظف")
+
+    # Promote/change a normal user's role, with a new display name.
+    updated = auth.update_user(clerk.user_id, "accounting", full_name="موظف مالي")
+    assert updated.role == "accounting" and updated.full_name == "موظف مالي"
+
+    # Teacher role requires a linked teacher record.
+    with pytest.raises(ValidationError):
+        auth.update_user(clerk.user_id, "teacher")
+    linked = auth.update_user(clerk.user_id, "teacher", teacher_id=world["t_m"].teacher_id)
+    assert linked.teacher_id == world["t_m"].teacher_id
+    # Leaving the teacher role clears the link.
+    assert auth.update_user(clerk.user_id, "registrar").teacher_id is None
+
+    # The last active admin can never lose the admin role.
+    with pytest.raises(ValidationError):
+        auth.update_user(boss.user_id, "registrar")
+    auth.create_user("boss2", "boss2-pass-123", "admin")
+    assert auth.update_user(boss.user_id, "registrar").role == "registrar"
+
+
+def test_outstanding_invoices_listing(world):
+    conn = world["conn"]
+    fees = FeeService(conn)
+    fee = fees.assess_fee(world["male"].student_id, "Tuition", 500,
+                          term_id=world["term"].term_id, course_id=world["cs101"].course_id)
+    fees.record_payment(fee.fee_id, 200)
+    paid_off = fees.assess_fee(world["female"].student_id, "Registration", 300)
+    fees.record_payment(paid_off.fee_id, 300)
+
+    rows = fees.list_outstanding()
+    assert fees.count_outstanding() == 1 and len(rows) == 1
+    row = rows[0]
+    assert row["student_number"] == world["male"].student_number
+    assert row["course_code"] == "CS101"
+    assert row["paid"] == 200 and row["amount"] + row["tax_amount"] - row["paid"] == 300
+
+    # Search narrows by student number or name; misses return nothing.
+    assert fees.count_outstanding(world["male"].student_number) == 1
+    assert fees.count_outstanding("علي") == 1
+    assert fees.count_outstanding("no-such-student") == 0

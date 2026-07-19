@@ -165,3 +165,81 @@ def test_grade_breakdown_saved_and_totalled(client):
     assert e.numeric_mark == 92 and e.grade == "A"
     assert e.coursework_mark == 48 and e.final_mark == 44
     conn.close()
+
+
+def test_paginated_pages_survive_multiple_pages(client):
+    """Regression: the pager macro used t() without `with context`, so every
+    paginated page 500'd as soon as it grew past one page (25 rows)."""
+    import database
+    from database import get_connection
+    conn = get_connection(database.DB_PATH)
+    for i in range(30):
+        conn.execute(
+            "INSERT INTO audit_log (at, actor, action, entity_type, entity_id, details) "
+            "VALUES (?,?,?,?,?,?)",
+            (f"2030-01-{(i % 28) + 1:02d}T10:00:00", "staff:admin", "student.update",
+             "student", i, f"row {i}"),
+        )
+    conn.commit()
+    conn.close()
+
+    login(client, "admin", "admin-pass-1")
+    page1 = client.get("/audit")
+    assert page1.status_code == 200
+    assert "Page 1 of 2" in page1.get_data(as_text=True)
+    assert client.get("/audit?page=2").status_code == 200
+
+
+def test_financial_outstanding_invoices_table(client):
+    import database
+    from database import get_connection
+    from student_service import StudentService
+    from fee_service import FeeService
+
+    conn = get_connection(database.DB_PATH)
+    student = StudentService(conn).add_student("Owing", "Person", "owing@x.com", gender="male")
+    fee = FeeService(conn).assess_fee(student.student_id, "Registration", 500)
+    FeeService(conn).record_payment(fee.fee_id, 150)
+    number = student.student_number
+    conn.close()
+
+    login(client, "admin", "admin-pass-1")
+    html = client.get("/financial").get_data(as_text=True)
+    assert "Outstanding invoices" in html
+    assert number in html and "350.00" in html and "150.00" in html
+    # Search hits and misses.
+    assert number in client.get(f"/financial?q={number}").get_data(as_text=True)
+    assert number not in client.get("/financial?q=zzz").get_data(as_text=True)
+
+
+def test_users_page_edits_roles_with_guard(client):
+    import database
+    from database import get_connection
+
+    login(client, "admin", "admin-pass-1")
+    html = client.get("/users").get_data(as_text=True)
+    assert "Staff &amp; permissions" in html
+
+    # Admin reassigns the registrar's role (and sets a display name).
+    conn = get_connection(database.DB_PATH)
+    reg_id = conn.execute("SELECT user_id FROM users WHERE username='reg'").fetchone()["user_id"]
+    admin_id = conn.execute("SELECT user_id FROM users WHERE username='admin'").fetchone()["user_id"]
+    conn.close()
+    client.post(f"/users/{reg_id}/update",
+                data={"role": "accounting", "teacher_id": "", "full_name": "Reggie",
+                      "csrf_token": _csrf(client, "/users")})
+    conn = get_connection(database.DB_PATH)
+    row = conn.execute("SELECT role, full_name FROM users WHERE user_id=?", (reg_id,)).fetchone()
+    conn.close()
+    assert row["role"] == "accounting" and row["full_name"] == "Reggie"
+
+    # The only active admin cannot demote themselves.
+    r = client.post(f"/users/{admin_id}/update",
+                    data={"role": "registrar", "teacher_id": "", "full_name": "",
+                          "csrf_token": _csrf(client, "/users")},
+                    follow_redirects=True)
+    assert "remove the admin role" in r.get_data(as_text=True)
+    conn = get_connection(database.DB_PATH)
+    assert conn.execute("SELECT role FROM users WHERE user_id=?",
+                        (admin_id,)).fetchone()["role"] == "admin"
+    conn.close()

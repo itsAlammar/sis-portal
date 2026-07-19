@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "_pagination.html" import pager with context %}
 {% block title %}{{ t('nav.financial') }}{% endblock %}
 {% block content %}
 <div class="page-header"><h1>{{ t('nav.financial') }}</h1></div>
@@ -6,6 +7,31 @@
   <div class="stat-card"><div class="n">{{ "%.0f"|format(total) }}</div><div class="l">{{ t('fin.amount') }} (SAR)</div></div>
   <div class="stat-card"><div class="n">{{ "%.0f"|format(paid) }}</div><div class="l">{{ t('fin.paid') }}</div></div>
   <div class="stat-card"><div class="n">{{ "%.0f"|format(outstanding) }}</div><div class="l">{{ t('fin.remaining') }}</div></div>
+</div>
+<div class="card" style="margin-top:16px;">
+  <h2>{{ t('fin.outstanding_invoices') }}</h2>
+  <form method="get" class="filter-bar"><input type="text" name="q" placeholder="{{ t('search.by_number_or_name') }}" value="{{ query or '' }}"></form>
+  {% if invoices %}
+  <table style="margin-top:12px;">
+    <thead><tr>
+      <th>{{ t('fin.date') }}</th><th>{{ t('auth.student_number') }}</th><th>{{ t('common.name') }}</th>
+      <th>{{ t('common.type') }}</th><th>{{ t('course.code') }}</th><th>{{ t('nav.terms') }}</th>
+      <th class="num">{{ t('fin.amount') }}</th><th class="num">{{ t('fin.paid') }}</th><th class="num">{{ t('fin.remaining') }}</th>
+    </tr></thead>
+    <tbody>{% for r in invoices %}<tr>
+      <td class="num" style="white-space:nowrap;">{{ r['created_at'] }}</td>
+      <td><span class="stamp stamp--default">{{ r['student_number'] }}</span></td>
+      <td><a href="{{ url_for('students_detail', student_id=r['student_id']) }}">{{ r['student_name_ar'] if locale=='ar' and r['student_name_ar'] else r['student_name'] }}</a></td>
+      <td>{{ tf(r['fee_type']) }}</td>
+      <td>{{ r['course_code'] or '—' }}</td>
+      <td>{{ (r['term_name_ar'] if locale=='ar' and r['term_name_ar'] else r['term_name']) or '—' }}</td>
+      <td class="num">{{ "%.2f"|format(r['amount'] + r['tax_amount']) }}</td>
+      <td class="num">{{ "%.2f"|format(r['paid']) }}</td>
+      <td class="num"><span class="stamp stamp--attention">{{ "%.2f"|format(r['amount'] + r['tax_amount'] - r['paid']) }}</span></td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {{ pager(page, pages) }}
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>
 <div class="card" style="margin-top:16px;">
   <h2>{{ t('fin.per_course') }}</h2>

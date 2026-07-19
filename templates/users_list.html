@@ -2,30 +2,62 @@
 {% block title %}{{ t('nav.roles') }}{% endblock %}
 {% block content %}
 <div class="page-header"><h1>{{ t('nav.roles') }}</h1></div>
-<div class="grid-2">
-  <div class="card">
-    <table>
-      <thead><tr><th>{{ t('auth.username') }}</th><th>{{ t('user.role') }}</th><th>{{ t('common.status') }}</th><th></th></tr></thead>
-      <tbody>{% for row in users %}<tr>
-        <td>{{ row.user.username }}</td>
-        <td><span class="stamp stamp--default">{{ t('role.' + row.user.role) }}</span></td>
-        <td><span class="stamp stamp--{{ status_kind(row.user.status) }}">{{ ts(row.user.status) }}</span></td>
-        <td><form method="post" action="{{ url_for('users_set_status', user_id=row.user.user_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="{{ 'disabled' if row.user.status=='active' else 'active' }}"><button class="btn--ghost btn--small">{{ t('user.disable') if row.user.status=='active' else t('user.enable') }}</button></form></td>
-      </tr>{% endfor %}</tbody>
-    </table>
-  </div>
-  <div class="card">
-    <h2>{{ t('action.add') }}</h2>
-    <form method="post" action="{{ url_for('users_add') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label>{{ t('auth.username') }}</label><input name="username" required>
-      <label>{{ t('auth.password') }}</label><input type="password" name="password" required minlength="8">
-      <label>{{ t('user.role') }}</label>
-      <select name="role"><option value="registrar">{{ t('role.registrar') }}</option><option value="accounting">{{ t('role.accounting') }}</option><option value="teacher">{{ t('role.teacher') }}</option><option value="admin">{{ t('role.admin') }}</option></select>
-      <label>{{ t('role.teacher') }} (for teacher role)</label>
-      <select name="teacher_id"><option value="">—</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}">{{ tt.display_name(locale) }}</option>{% endfor %}</select>
-      <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
-    </form>
-  </div>
+<div class="card">
+  <h2>{{ t('user.staff_table') }}</h2>
+  <table style="margin-top:12px;">
+    <thead><tr>
+      <th>{{ t('common.name') }}</th><th>{{ t('auth.username') }}</th><th>{{ t('user.role') }}</th>
+      <th>{{ t('user.linked_teacher') }}</th><th>{{ t('common.status') }}</th><th>{{ t('common.actions') }}</th>
+    </tr></thead>
+    <tbody>{% for row in users %}{% set fid = 'uf' ~ row.user.user_id %}<tr>
+      <td><input name="full_name" form="{{ fid }}"
+                 value="{{ row.user.full_name or (row.teacher.display_name(locale) if row.teacher else '') }}"
+                 placeholder="—" style="min-width:140px;"></td>
+      <td>{{ row.user.username }}</td>
+      <td>
+        <select name="role" form="{{ fid }}">
+          {% for r in ['admin', 'registrar', 'accounting', 'teacher'] %}
+          <option value="{{ r }}" {{ 'selected' if row.user.role == r }}>{{ t('role.' + r) }}</option>
+          {% endfor %}
+        </select>
+      </td>
+      <td>
+        <select name="teacher_id" form="{{ fid }}">
+          <option value="">—</option>
+          {% for tt in teachers %}
+          <option value="{{ tt.teacher_id }}" {{ 'selected' if row.user.teacher_id == tt.teacher_id }}>{{ tt.display_name(locale) }}</option>
+          {% endfor %}
+        </select>
+      </td>
+      <td><span class="stamp stamp--{{ status_kind(row.user.status) }}">{{ ts(row.user.status) }}</span></td>
+      <td>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <form id="{{ fid }}" method="post" action="{{ url_for('users_update', user_id=row.user.user_id) }}" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn--primary btn--small">{{ t('action.save') }}</button>
+          </form>
+          <form method="post" action="{{ url_for('users_set_status', user_id=row.user.user_id) }}" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="status" value="{{ 'disabled' if row.user.status=='active' else 'active' }}">
+            <button class="btn--ghost btn--small">{{ t('user.disable') if row.user.status=='active' else t('user.enable') }}</button>
+          </form>
+        </div>
+      </td>
+    </tr>{% endfor %}</tbody>
+  </table>
+</div>
+<div class="card" style="margin-top:16px; max-width:520px;">
+  <h2>{{ t('action.add') }}</h2>
+  <form method="post" action="{{ url_for('users_add') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>{{ t('common.name') }}</label><input name="full_name">
+    <label>{{ t('auth.username') }}</label><input name="username" required>
+    <label>{{ t('auth.password') }}</label><input type="password" name="password" required minlength="8">
+    <label>{{ t('user.role') }}</label>
+    <select name="role"><option value="registrar">{{ t('role.registrar') }}</option><option value="accounting">{{ t('role.accounting') }}</option><option value="teacher">{{ t('role.teacher') }}</option><option value="admin">{{ t('role.admin') }}</option></select>
+    <label>{{ t('user.linked_teacher') }}</label>
+    <select name="teacher_id"><option value="">—</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}">{{ tt.display_name(locale) }}</option>{% endfor %}</select>
+    <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
+  </form>
 </div>
 {% endblock %}

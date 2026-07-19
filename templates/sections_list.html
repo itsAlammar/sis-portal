@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% from "_pagination.html" import pager %}
+{% from "_pagination.html" import pager with context %}
 {% block title %}{{ t('nav.sections') }}{% endblock %}
 {% block content %}
 <div class="page-header"><h1>{{ t('nav.sections') }}</h1><a class="btn btn--primary" href="{{ url_for('sections_add') }}">+ {{ t('action.add') }}</a></div>

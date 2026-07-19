@@ -365,12 +365,14 @@ class User:
     teacher_id: Optional[int]
     status: str
     created_at: str
+    full_name: Optional[str] = None
 
     @classmethod
     def from_row(cls, row):
         return cls(
             row["user_id"], row["username"], row["password_hash"], row["role"],
             _g(row, "teacher_id"), row["status"], row["created_at"],
+            _g(row, "full_name"),
         )
 
 

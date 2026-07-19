@@ -1176,8 +1176,13 @@ def financial_overview():
         "SELECT fee_type, COALESCE(SUM(amount+tax_amount),0) total FROM fees "
         "WHERE status!='waived' GROUP BY fee_type"
     ).fetchall()
+    fees = FeeService(conn)
+    q = request.args.get("q", "").strip()
+    page, pages, limit, offset = paginate(fees.count_outstanding(q))
+    invoices = fees.list_outstanding(q, limit=limit, offset=offset)
     return render_template("financial.html", total=round(total, 2), paid=round(paid, 2),
-                           outstanding=round(total - paid, 2), by_type=by_type)
+                           outstanding=round(total - paid, 2), by_type=by_type,
+                           invoices=invoices, query=q, page=page, pages=pages)
 
 
 # ======================================================================
@@ -1201,9 +1206,33 @@ def users_add():
     try:
         u = AuthService(get_db()).create_user(
             f["username"], f["password"], f["role"],
-            teacher_id=int(f["teacher_id"]) if f.get("teacher_id") else None)
+            teacher_id=int(f["teacher_id"]) if f.get("teacher_id") else None,
+            full_name=f.get("full_name", ""))
         audit("user.create", "user", u.user_id, f"role={u.role}")
         flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("users_list"))
+
+
+@app.route("/users/<int:user_id>/update", methods=["POST"])
+@staff_required("admin")
+def users_update(user_id):
+    conn = get_db()
+    auth, me = AuthService(conn), current_staff()
+    f = request.form
+    role = f.get("role", "")
+    try:
+        target = auth.get_user(user_id)
+        demoting = target.role == "admin" and role != "admin"
+        if demoting and (target.user_id == me.user_id or auth.count_admins() <= 1):
+            flash(i18n.t("user.last_admin_guard", locale()), "error")
+        else:
+            auth.update_user(user_id, role,
+                             teacher_id=int(f["teacher_id"]) if f.get("teacher_id") else None,
+                             full_name=f.get("full_name", ""))
+            audit("user.update", "user", user_id, f"role={role}")
+            flash(i18n.t("flash.saved", locale()), "success")
     except SISError as e:
         flash(str(e), "error")
     return redirect(url_for("users_list"))

@@ -120,6 +120,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "user.role": {"en": "Role", "ar": "الدور"},
     "user.enable": {"en": "Enable", "ar": "تفعيل"},
     "user.disable": {"en": "Disable", "ar": "تعطيل"},
+    "user.linked_teacher": {"en": "Linked teacher", "ar": "المعلم المرتبط"},
+    "user.staff_table": {"en": "Staff & permissions", "ar": "الموظفون وصلاحياتهم"},
+    "user.last_admin_guard": {"en": "You can't remove the admin role from the last active admin (or yourself).",
+                              "ar": "لا يمكن إزالة صلاحية المدير من آخر مدير نشط (أو من حسابك أنت)."},
     "settings.change_password": {"en": "Change password", "ar": "تغيير كلمة المرور"},
     "settings.institution_en": {"en": "Institution name (EN)", "ar": "اسم المؤسسة (إنجليزي)"},
     "settings.institution_ar": {"en": "Institution name (AR)", "ar": "اسم المؤسسة (عربي)"},
@@ -270,6 +274,9 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "fin.per_course": {"en": "Charges by course", "ar": "الرسوم حسب المادة"},
     "fin.pay_now": {"en": "Pay now", "ar": "ادفع الآن"},
     "fin.statement": {"en": "Statement of account", "ar": "كشف الحساب"},
+    "fin.outstanding_invoices": {"en": "Outstanding invoices", "ar": "الفواتير المستحقة"},
+    "fin.date": {"en": "Date", "ar": "التاريخ"},
+    "fin.total": {"en": "Total", "ar": "الإجمالي"},
 
     # -- admissions -------------------------------------------------------
     "adm.apply": {"en": "Admission application", "ar": "طلب التحاق"},

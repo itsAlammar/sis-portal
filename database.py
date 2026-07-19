@@ -273,6 +273,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role          TEXT NOT NULL CHECK (role IN ('admin', 'registrar', 'teacher', 'accounting')),
     teacher_id    INTEGER REFERENCES teachers(teacher_id),
+    full_name     TEXT,
     status        TEXT NOT NULL DEFAULT 'active',
     created_at    TEXT NOT NULL
 );
@@ -365,6 +366,7 @@ def _migrate(conn):
         ("fees", "course_id", "INTEGER"),
         ("fees", "tax_amount", "REAL NOT NULL DEFAULT 0"),
         ("fees", "waived_reason", "TEXT"),
+        ("users", "full_name", "TEXT"),
     ]
     for table, column, coltype in additions:
         if not _column_exists(conn, table, column):

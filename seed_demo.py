@@ -149,11 +149,13 @@ def seed(conn):
 
     # Staff accounts, one per role.
     auth = AuthService(conn)
-    auth.create_user("admin", "admin-demo-123", "admin")
-    auth.create_user("registrar", "registrar-demo-123", "registrar")
-    auth.create_user("accountant", "accounting-demo-123", "accounting")
-    auth.create_user("o.haddad", "teacher-demo-123", "teacher", teacher_id=t_m1.teacher_id)
-    auth.create_user("s.alamri", "teacher-demo-123", "teacher", teacher_id=t_f1.teacher_id)
+    auth.create_user("admin", "admin-demo-123", "admin", full_name="عبدالله العتيبي")
+    auth.create_user("registrar", "registrar-demo-123", "registrar", full_name="سارة القحطاني")
+    auth.create_user("accountant", "accounting-demo-123", "accounting", full_name="محمد الشهري")
+    auth.create_user("o.haddad", "teacher-demo-123", "teacher", teacher_id=t_m1.teacher_id,
+                     full_name=t_m1.name_ar or t_m1.name)
+    auth.create_user("s.alamri", "teacher-demo-123", "teacher", teacher_id=t_f1.teacher_id,
+                     full_name=t_f1.name_ar or t_f1.name)
 
     print(f"Demo data loaded into {DB_PATH}")
     print("Students: 6 (male+female)  Teachers: 4  Courses: 4  Majors: 3  Terms: 3")

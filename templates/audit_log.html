@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% from "_pagination.html" import pager %}
+{% from "_pagination.html" import pager with context %}
 {% block title %}{{ t('nav.audit') }}{% endblock %}
 {% block content %}
 <div class="page-header"><h1>{{ t('nav.audit') }}</h1></div>

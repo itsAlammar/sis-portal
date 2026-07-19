@@ -161,6 +161,44 @@ class FeeService:
                               "course_code": course_code})
         return statement
 
+    _OUTSTANDING_WHERE = """
+        FROM fees f
+        JOIN students s ON s.student_id = f.student_id
+        LEFT JOIN courses c ON c.course_id = f.course_id
+        LEFT JOIN terms t ON t.term_id = f.term_id
+        WHERE f.status != 'waived'
+          AND (f.amount + f.tax_amount)
+              - COALESCE((SELECT SUM(p.amount_paid) FROM payments p
+                          WHERE p.fee_id = f.fee_id), 0) > 0.005
+          AND (? = '' OR s.student_number LIKE ? OR s.name_ar LIKE ?
+               OR (s.first_name || ' ' || s.last_name) LIKE ?)
+    """
+
+    def count_outstanding(self, q: str = "") -> int:
+        q = q.strip()
+        like = f"%{q}%"
+        return self.conn.execute(
+            "SELECT COUNT(*) AS c " + self._OUTSTANDING_WHERE, (q, like, like, like)
+        ).fetchone()["c"]
+
+    def list_outstanding(self, q: str = "", limit: int = 50, offset: int = 0) -> List[sqlite3.Row]:
+        """Unpaid / partially paid invoices across all students, newest first,
+        with student identity, course code, term name and paid-so-far."""
+        q = q.strip()
+        like = f"%{q}%"
+        return self.conn.execute(
+            """SELECT f.fee_id, f.created_at, f.fee_type, f.amount, f.tax_amount,
+                      s.student_id, s.student_number,
+                      s.first_name || ' ' || s.last_name AS student_name,
+                      s.name_ar AS student_name_ar,
+                      c.course_code, t.name AS term_name, t.name_ar AS term_name_ar,
+                      COALESCE((SELECT SUM(p.amount_paid) FROM payments p
+                                WHERE p.fee_id = f.fee_id), 0) AS paid
+            """ + self._OUTSTANDING_WHERE +
+            " ORDER BY f.created_at DESC, f.fee_id DESC LIMIT ? OFFSET ?",
+            (q, like, like, like, limit, offset),
+        ).fetchall()
+
     def waive_fee(self, fee_id: int, reason: str = "") -> Fee:
         self.get_fee(fee_id)
         self.conn.execute(

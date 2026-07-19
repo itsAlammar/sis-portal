@@ -47,36 +47,64 @@ class AuthService:
         self.conn = conn
 
     # -- staff accounts ---------------------------------------------------
+    def _check_role(self, role: str, teacher_id: Optional[int]) -> Optional[int]:
+        """Validates the role and its teacher link; returns the effective
+        teacher_id (forced to None for non-teacher roles)."""
+        if role not in VALID_ROLES:
+            raise ValidationError(f"Role must be one of {sorted(VALID_ROLES)}.")
+        if role != "teacher":
+            return None
+        if not teacher_id:
+            raise ValidationError("A teacher account must be linked to a teacher record.")
+        exists = self.conn.execute(
+            "SELECT 1 FROM teachers WHERE teacher_id = ?", (teacher_id,)
+        ).fetchone()
+        if not exists:
+            raise NotFoundError(f"No teacher with id {teacher_id}.")
+        return teacher_id
+
     def create_user(
         self, username: str, password: str, role: str,
-        teacher_id: Optional[int] = None,
+        teacher_id: Optional[int] = None, full_name: str = "",
     ) -> User:
         username = username.strip().lower()
         if not username:
             raise ValidationError("Username is required.")
-        if role not in VALID_ROLES:
-            raise ValidationError(f"Role must be one of {sorted(VALID_ROLES)}.")
-        if role == "teacher":
-            if not teacher_id:
-                raise ValidationError("A teacher account must be linked to a teacher record.")
-            exists = self.conn.execute(
-                "SELECT 1 FROM teachers WHERE teacher_id = ?", (teacher_id,)
-            ).fetchone()
-            if not exists:
-                raise NotFoundError(f"No teacher with id {teacher_id}.")
-        else:
-            teacher_id = None
+        teacher_id = self._check_role(role, teacher_id)
         try:
             cur = self.conn.execute(
-                """INSERT INTO users (username, password_hash, role, teacher_id, status, created_at)
-                   VALUES (?, ?, ?, ?, 'active', ?)""",
+                """INSERT INTO users (username, password_hash, role, teacher_id,
+                                      full_name, status, created_at)
+                   VALUES (?, ?, ?, ?, ?, 'active', ?)""",
                 (username, hash_password(password), role, teacher_id,
+                 full_name.strip() or None,
                  datetime.now().isoformat(timespec="seconds")),
             )
         except sqlite3.IntegrityError as e:
             raise DuplicateError(f"A user named '{username}' already exists.") from e
         self.conn.commit()
         return self.get_user(cur.lastrowid)
+
+    def update_user(
+        self, user_id: int, role: str,
+        teacher_id: Optional[int] = None, full_name: Optional[str] = None,
+    ) -> User:
+        """Admin edit of a staff account: role (with teacher link) and
+        display name. Demoting the last active admin is refused so the
+        system can never lose its only administrator."""
+        user = self.get_user(user_id)
+        teacher_id = self._check_role(role, teacher_id)
+        if (user.role == "admin" and role != "admin"
+                and user.status == "active" and self.count_admins() <= 1):
+            raise ValidationError("You can't remove the admin role from the last active admin.")
+        self.conn.execute(
+            "UPDATE users SET role = ?, teacher_id = ?, full_name = ? WHERE user_id = ?",
+            (role, teacher_id,
+             (full_name.strip() or None) if full_name is not None else user.full_name,
+             user_id),
+        )
+        self.conn.commit()
+        return self.get_user(user_id)
 
     def get_user(self, user_id: int) -> User:
         row = self.conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
