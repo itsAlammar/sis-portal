@@ -409,6 +409,12 @@ def get_connection(db_path: Path = None) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA busy_timeout = 15000;")
+    # Performance tuning (safe with WAL): NORMAL fsync trades a tiny durability
+    # window on power loss for far faster writes; the rest reduce disk I/O.
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    conn.execute("PRAGMA cache_size = -16000;")   # ~16MB page cache
+    conn.execute("PRAGMA temp_store = MEMORY;")
+    conn.execute("PRAGMA mmap_size = 268435456;")  # 256MB
     conn.row_factory = sqlite3.Row
     return conn
 

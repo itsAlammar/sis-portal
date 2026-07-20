@@ -600,3 +600,70 @@ def test_timetable_draft_respects_fixed_sections(world):
     # No teacher/room clash introduced against the fixed section.
     kinds = {c.kind for c in tt.section_conflicts(tid)}
     assert "teacher" not in kinds and "room" not in kinds
+
+
+# -- capacity race: concurrent enrollments must not overfill a section -----
+
+def test_concurrent_enroll_respects_capacity(tmp_path):
+    """Two threads enrolling different students into a capacity-1 section at
+    the same time: exactly one succeeds, the other hits CapacityError, and the
+    section never overfills. Guards the BEGIN IMMEDIATE transaction in
+    enroll_student against the check-then-insert race."""
+    import threading
+
+    from database import get_connection, initialize_database
+    from course_service import CourseService
+    from major_service import MajorService
+    from section_service import SectionService
+    from student_service import StudentService
+    from term_service import TermService
+    from exceptions import CapacityError
+
+    db_path = tmp_path / "conc.db"
+    setup = get_connection(db_path)
+    initialize_database(setup)
+    term = TermService(setup).add_term("Fall", "2030-09-01", "2030-12-20", name_ar="الأول")
+    cs = MajorService(setup).add_major("CS", "Computer Science", "علوم الحاسب", 120)
+    course = CourseService(setup).add_course("CS101", "Intro", 3, title_ar="مقدمة",
+                                             major_id=cs.major_id)
+    sec = SectionService(setup).add_section(course.course_id, term.term_id, "01",
+                                            gender="male", capacity=1)
+    students = StudentService(setup)
+    s1 = students.add_student("A", "One", "a1@s.edu", national_id="1111111111",
+                              gender="male", major_id=cs.major_id)
+    s2 = students.add_student("B", "Two", "b2@s.edu", national_id="2222222222",
+                              gender="male", major_id=cs.major_id)
+    setup.close()
+
+    results = {}
+    barrier = threading.Barrier(2)
+
+    def worker(student_id, key):
+        conn = get_connection(db_path)
+        try:
+            barrier.wait()  # release both threads together
+            EnrollmentService(conn).enroll_student(student_id, sec.section_id)
+            results[key] = "enrolled"
+        except CapacityError:
+            results[key] = "capacity"
+        finally:
+            conn.close()
+
+    threads = [
+        threading.Thread(target=worker, args=(s1.student_id, "t1")),
+        threading.Thread(target=worker, args=(s2.student_id, "t2")),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert sorted(results.values()) == ["capacity", "enrolled"]
+
+    check = get_connection(db_path)
+    count = check.execute(
+        "SELECT COUNT(*) AS c FROM enrollments WHERE section_id = ?",
+        (sec.section_id,),
+    ).fetchone()["c"]
+    check.close()
+    assert count == 1
