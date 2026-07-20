@@ -1,0 +1,22 @@
+{% extends "portal_layout.html" %}
+{% block title %}{{ t('exam.my') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('exam.my') }}</h1></div>
+{% if conflicts %}<div class="flash flash--error">{{ t('exam.conflict_warn') }}</div>{% endif %}
+<div class="card">
+  {% if exams %}
+  <table>
+    <thead><tr><th>{{ t('fin.date') }}</th><th>{{ t('course.title') }}</th><th>{{ t('common.type') }}</th><th>{{ t('exam.start') }}</th><th>{{ t('exam.end') }}</th><th>{{ t('exam.room') }}</th><th></th></tr></thead>
+    <tbody>{% for x in exams %}<tr>
+      <td class="num" style="white-space:nowrap;">{{ x['date'] }}</td>
+      <td>{{ x['course_code'] }} — {{ x['title_ar'] if locale=='ar' and x['title_ar'] else x['title'] }}</td>
+      <td><span class="stamp stamp--default">{{ t('exam.' + x['kind']) }}</span></td>
+      <td class="num">{{ x['start_time'] or '—' }}</td>
+      <td class="num">{{ x['end_time'] or '—' }}</td>
+      <td>{{ x['room'] or '—' }}</td>
+      <td>{% if x['exam_id'] in conflicts %}<span class="stamp stamp--attention">{{ t('exam.conflict') }}</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+</div>
+{% endblock %}

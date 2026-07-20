@@ -19,6 +19,7 @@
     <a href="{{ url_for('portal_dashboard') }}" class="{{ 'active' if request.endpoint=='portal_dashboard' }}">{{ t('nav.dashboard') }}</a>
     <a href="{{ url_for('portal_registration') }}" class="{{ 'active' if request.endpoint=='portal_registration' }}">{{ t('nav.registration') }}</a>
     <a href="{{ url_for('portal_grades') }}" class="{{ 'active' if request.endpoint=='portal_grades' }}">{{ t('nav.my_grades') }}</a>
+    <a href="{{ url_for('portal_exams') }}" class="{{ 'active' if request.endpoint=='portal_exams' }}">{{ t('exam.my') }}</a>
     <a href="{{ url_for('portal_attendance') }}" class="{{ 'active' if request.endpoint=='portal_attendance' }}">{{ t('att.title') }}</a>
     <a href="{{ url_for('portal_financial') }}" class="{{ 'active' if request.endpoint=='portal_financial' }}">{{ t('nav.financial') }}</a>
     <a href="{{ url_for('portal_services') }}" class="{{ 'active' if request.endpoint=='portal_services' }}">{{ t('nav.other_services') }}</a>

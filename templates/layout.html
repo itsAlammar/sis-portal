@@ -30,6 +30,7 @@
         <li><a href="{{ url_for('majors_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('majors') }}">{{ t('nav.majors') }}</a></li>
         <li><a href="{{ url_for('terms_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('terms') }}">{{ t('nav.terms') }}</a></li>
         <li><a href="{{ url_for('sections_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('sections') }}">{{ t('nav.sections') }}</a></li>
+        <li><a href="{{ url_for('exams_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('exams') }}">{{ t('nav.exams') }}</a></li>
         <li><a href="{{ url_for('requests_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('requests') }}">{{ t('nav.other_services') }}{% if pending_requests %}<span class="pill">{{ pending_requests }}</span>{% endif %}</a></li>
         {% if staff_user and staff_user.role == 'admin' %}
         <li><a href="{{ url_for('financial_overview') }}">{{ t('nav.financial') }}</a></li>

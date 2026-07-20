@@ -5,8 +5,26 @@
 <div class="card">
   {% if sections %}
   <table>
-    <thead><tr><th>{{ t('course.code') }}</th><th>Sec</th><th>{{ t('nav.terms') }}</th><th class="num">Enrolled</th></tr></thead>
+    <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('common.section') }}</th><th>{{ t('nav.terms') }}</th><th class="num">{{ t('common.enrolled') }}</th></tr></thead>
     <tbody>{% for r in sections %}<tr><td><a href="{{ url_for('teach_section', section_id=r.section.section_id) }}">{{ r.course.course_code }}</a> <span class="muted">{{ r.course.display_title(locale) }}</span></td><td>{{ r.section.section_number }}</td><td>{{ r.term.display_name(locale) }}</td><td class="num">{{ r.enrolled }}/{{ r.section.capacity }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h2>🗓️ {{ t('exam.teacher_card') }}</h2>
+  {% if my_exams %}
+  <table>
+    <thead><tr><th>{{ t('fin.date') }}</th><th>{{ t('course.code') }}</th><th>{{ t('common.section') }}</th><th>{{ t('common.type') }}</th><th>{{ t('exam.start') }}</th><th>{{ t('exam.end') }}</th><th>{{ t('exam.room') }}</th></tr></thead>
+    <tbody>{% for x in my_exams %}<tr>
+      <td class="num" style="white-space:nowrap;">{{ x['date'] }}</td>
+      <td>{{ x['course_code'] }}</td>
+      <td>{{ x['section_number'] }}</td>
+      <td><span class="stamp stamp--default">{{ t('exam.' + x['kind']) }}</span></td>
+      <td class="num">{{ x['start_time'] or '—' }}</td>
+      <td class="num">{{ x['end_time'] or '—' }}</td>
+      <td>{{ x['room'] or '—' }}</td>
+    </tr>{% endfor %}</tbody>
   </table>
   {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>

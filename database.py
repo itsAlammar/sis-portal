@@ -270,6 +270,17 @@ CREATE TABLE IF NOT EXISTS service_requests (
     created_at  TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS exam_schedule (
+    exam_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    section_id INTEGER NOT NULL REFERENCES sections(section_id),
+    kind       TEXT NOT NULL DEFAULT 'final',   -- midterm, final
+    date       TEXT NOT NULL,
+    start_time TEXT,
+    end_time   TEXT,
+    room       TEXT,
+    UNIQUE(section_id, kind)
+);
+
 CREATE TABLE IF NOT EXISTS users (
     user_id       INTEGER PRIMARY KEY AUTOINCREMENT,
     username      TEXT UNIQUE NOT NULL,
@@ -301,6 +312,7 @@ CREATE INDEX IF NOT EXISTS idx_waitlist_section ON waitlist(section_id);
 CREATE INDEX IF NOT EXISTS idx_applications_status ON admission_applications(status);
 CREATE INDEX IF NOT EXISTS idx_requests_status ON service_requests(status);
 CREATE INDEX IF NOT EXISTS idx_requests_student ON service_requests(student_id);
+CREATE INDEX IF NOT EXISTS idx_exams_section ON exam_schedule(section_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_section ON attendance(section_id, date);
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at);
 """

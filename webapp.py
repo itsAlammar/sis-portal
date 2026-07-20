@@ -40,6 +40,7 @@ from waitlist_service import WaitlistService
 from request_service import RequestService
 from mail_service import MailService
 from attendance_service import AttendanceService
+from exam_service import ExamService
 import pdf_reports
 
 app = Flask(__name__)
@@ -1089,6 +1090,52 @@ def _apply_grades(section_id, enforce_deadline=False):
 
 
 # ======================================================================
+# Exam schedule
+# ======================================================================
+@app.route("/exams", methods=["GET", "POST"])
+@staff_required("admin", "registrar")
+def exams_list():
+    conn = get_db()
+    exams, terms, sections, courses = (ExamService(conn), TermService(conn),
+                                       SectionService(conn), CourseService(conn))
+    if request.method == "POST":
+        f = request.form
+        try:
+            exams.set_exam(int(f["section_id"]), f.get("kind", "final"), f.get("date", ""),
+                           start_time=f.get("start_time", ""), end_time=f.get("end_time", ""),
+                           room=f.get("room", ""))
+            audit("exam.set", "section", int(f["section_id"]),
+                  f"{f.get('kind')} {f.get('date')}")
+            flash(i18n.t("flash.saved", locale()), "success")
+        except (SISError, ValueError) as e:
+            flash(str(e), "error")
+        return redirect(url_for("exams_list", term_id=f.get("term_id", "")))
+    current = terms.get_current_term()
+    term_id = request.args.get("term_id", type=int) or (current.term_id if current else None)
+    section_rows = []
+    if term_id:
+        for sec in sections.list_sections(term_id=term_id):
+            course = courses.get_course(sec.course_id)
+            section_rows.append({"section": sec, "course": course})
+    return render_template("exams.html",
+                           exams=exams.list_for_term(term_id) if term_id else [],
+                           terms=terms.list_terms(), sel_term=term_id,
+                           section_rows=section_rows)
+
+
+@app.route("/exams/<int:exam_id>/delete", methods=["POST"])
+@staff_required("admin", "registrar")
+def exams_delete(exam_id):
+    try:
+        ExamService(get_db()).delete_exam(exam_id)
+        audit("exam.delete", "exam", exam_id)
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("exams_list", term_id=request.form.get("term_id", "")))
+
+
+# ======================================================================
 # Teacher portal
 # ======================================================================
 def _own_section_or_403(section_id):
@@ -1109,7 +1156,10 @@ def teach_dashboard():
         rows.append({"section": sec, "course": courses.get_course(sec.course_id),
                      "term": terms.get_term(sec.term_id),
                      "enrolled": sections.get_enrolled_count(sec.section_id)})
-    return render_template("teach_dashboard.html", sections=rows,
+    current = terms.get_current_term()
+    my_exams = ExamService(conn).list_for_teacher(
+        user.teacher_id, term_id=current.term_id if current else None)
+    return render_template("teach_dashboard.html", sections=rows, my_exams=my_exams,
                            teacher=TeacherService(conn).get_teacher(user.teacher_id))
 
 
@@ -1454,6 +1504,19 @@ def portal_grades():
     return render_template("portal_grades.html", blocks=blocks, cum_gpa=cum,
                            standing=gpa.get_academic_standing(cum, locale()),
                            term_options=term_options, sel_term=term_id)
+
+
+@app.route("/portal/exams")
+@portal_login_required
+def portal_exams():
+    conn = get_db()
+    sid = session["portal_student_id"]
+    exams = ExamService(conn)
+    current = TermService(conn).get_current_term()
+    term_id = current.term_id if current else None
+    return render_template("portal_exams.html",
+                           exams=exams.list_for_student(sid, term_id=term_id),
+                           conflicts=exams.conflicting_exam_ids(sid, term_id=term_id))
 
 
 @app.route("/portal/attendance")

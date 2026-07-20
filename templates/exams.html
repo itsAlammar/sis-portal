@@ -1,0 +1,59 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('nav.exams') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('nav.exams') }}</h1>
+  <form method="get" style="margin:0;">
+    <select name="term_id" onchange="this.form.submit()">
+      {% for tm in terms %}<option value="{{ tm.term_id }}" {{ 'selected' if sel_term==tm.term_id }}>{{ tm.display_name(locale) }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+<div class="grid-2">
+  <div class="card">
+    {% if exams %}
+    <table>
+      <thead><tr><th>{{ t('fin.date') }}</th><th>{{ t('course.code') }}</th><th>{{ t('common.section') }}</th><th>{{ t('common.type') }}</th><th>{{ t('exam.start') }}</th><th>{{ t('exam.end') }}</th><th>{{ t('exam.room') }}</th><th></th></tr></thead>
+      <tbody>{% for x in exams %}<tr>
+        <td class="num" style="white-space:nowrap;">{{ x['date'] }}</td>
+        <td>{{ x['course_code'] }} <span class="muted">{{ x['title_ar'] if locale=='ar' and x['title_ar'] else x['title'] }}</span></td>
+        <td>{{ x['section_number'] }}</td>
+        <td><span class="stamp stamp--default">{{ t('exam.' + x['kind']) }}</span></td>
+        <td class="num">{{ x['start_time'] or '—' }}</td>
+        <td class="num">{{ x['end_time'] or '—' }}</td>
+        <td>{{ x['room'] or '—' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('exams_delete', exam_id=x['exam_id']) }}" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="term_id" value="{{ sel_term }}">
+            <button class="btn--ghost btn--small">{{ t('action.delete') }}</button>
+          </form>
+        </td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+  </div>
+  <div class="card" style="max-width:520px;">
+    <h2>{{ t('exam.set') }}</h2>
+    <p class="muted">{{ t('exam.upsert_hint') }}</p>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="term_id" value="{{ sel_term }}">
+      <label>{{ t('common.section') }}</label>
+      <select name="section_id" required>
+        {% for r in section_rows %}
+        <option value="{{ r.section.section_id }}">{{ r.course.course_code }} — {{ r.section.section_number }} ({{ t('common.male') if r.section.gender=='male' else t('common.female') }})</option>
+        {% endfor %}
+      </select>
+      <label>{{ t('common.type') }}</label>
+      <select name="kind"><option value="midterm">{{ t('exam.midterm') }}</option><option value="final">{{ t('exam.final') }}</option></select>
+      <label>{{ t('fin.date') }}</label><input type="date" name="date" required>
+      <div class="grid-2">
+        <div><label>{{ t('exam.start') }}</label><input type="time" name="start_time"></div>
+        <div><label>{{ t('exam.end') }}</label><input type="time" name="end_time"></div>
+      </div>
+      <label>{{ t('exam.room') }}</label><input name="room">
+      <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -403,3 +403,58 @@ def test_excuse_requires_a_real_recorded_absence(world):
     with pytest.raises(ValidationError):
         RequestService(conn).submit(sid, "absence_excuse", "fake",
                                     section_id=sec, date="2030-11-11")
+
+
+# -- exam schedule ----------------------------------------------------------
+
+def test_exam_upsert_and_listings(world):
+    conn = world["conn"]
+    from exam_service import ExamService
+    ex, en = ExamService(conn), EnrollmentService(conn)
+    sid = world["male"].student_id
+    en.enroll_student(sid, world["sec_m"].section_id)
+
+    ex.set_exam(world["sec_m"].section_id, "final", "2030-12-01", "09:00", "11:00", "H-1")
+    # Saving the same section+kind again replaces, never duplicates.
+    row = ex.set_exam(world["sec_m"].section_id, "final", "2030-12-02", "10:00", "12:00", "H-2")
+    assert row["date"] == "2030-12-02" and row["room"] == "H-2"
+    assert len(ex.list_for_term(world["term"].term_id)) == 1
+
+    with pytest.raises(ValidationError):
+        ex.set_exam(world["sec_m"].section_id, "quiz", "2030-12-03")
+    with pytest.raises(ValidationError):
+        ex.set_exam(world["sec_m"].section_id, "final", "  ")
+
+    mine = ex.list_for_student(sid)
+    assert [x["exam_id"] for x in mine] == [row["exam_id"]]
+    # The teacher of the section sees it too; another teacher doesn't.
+    assert len(ex.list_for_teacher(world["t_m"].teacher_id)) == 1
+    assert ex.list_for_teacher(world["t_f"].teacher_id) == []
+
+    ex.delete_exam(row["exam_id"])
+    assert ex.list_for_term(world["term"].term_id) == []
+
+
+def test_exam_conflict_detection(world):
+    conn = world["conn"]
+    from exam_service import ExamService
+    from section_service import SectionService
+    ex, en = ExamService(conn), EnrollmentService(conn)
+    sid = world["male"].student_id
+    other = CourseService(conn).add_course("PHY101", "Physics", 3)
+    sec_other = SectionService(conn).add_section(other.course_id, world["term"].term_id,
+                                                 "01", gender="male", capacity=5)
+    en.enroll_student(sid, world["sec_m"].section_id)   # CS101
+    en.enroll_student(sid, sec_other.section_id)        # PHY101
+
+    ex.set_exam(world["sec_m"].section_id, "final", "2030-12-10", "09:00", "11:00")
+    ex.set_exam(sec_other.section_id, "final", "2030-12-10", "10:00", "12:00")
+    assert len(ex.conflicting_exam_ids(sid, world["term"].term_id)) == 2
+
+    # Moving the second exam to a non-overlapping slot clears the conflict.
+    ex.set_exam(sec_other.section_id, "final", "2030-12-10", "11:00", "13:00")
+    assert ex.conflicting_exam_ids(sid, world["term"].term_id) == set()
+
+    # Missing times = all-day slot -> conflicts with anything that date.
+    ex.set_exam(sec_other.section_id, "final", "2030-12-10")
+    assert len(ex.conflicting_exam_ids(sid, world["term"].term_id)) == 2

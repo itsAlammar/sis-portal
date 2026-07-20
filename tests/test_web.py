@@ -380,3 +380,47 @@ def test_lang_switch_ignores_external_referrer(client):
     r = client.get("/lang/ar", headers={"Referer": "https://evil.example/phish"})
     assert r.status_code == 302
     assert r.headers["Location"] in ("/", "http://localhost/")
+
+
+def test_exam_schedule_pages(client):
+    import database
+    from database import get_connection
+    from term_service import TermService
+    from course_service import CourseService
+    from section_service import SectionService
+    from enrollment_service import EnrollmentService
+
+    s = _make_portal_student("41")
+    conn = get_connection(database.DB_PATH)
+    term = TermService(conn).add_term("F2033", "2033-09-01", "2033-12-20")
+    TermService(conn).set_current_term(term.term_id)
+    course = CourseService(conn).add_course("EXM101", "Examable", 3)
+    sec = SectionService(conn).add_section(course.course_id, term.term_id, "01",
+                                           gender="male", capacity=5)
+    EnrollmentService(conn).enroll_student(s.student_id, sec.section_id)
+    conn.close()
+
+    # Admin schedules a final via the page.
+    login(client, "admin", "admin-pass-1")
+    r = client.post("/exams", data={"section_id": sec.section_id, "kind": "final",
+                                    "date": "2033-12-10", "start_time": "09:00",
+                                    "end_time": "11:00", "room": "H-7", "term_id": term.term_id,
+                                    "csrf_token": _csrf(client, "/exams")},
+                    follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert "EXM101" in body and "2033-12-10" in body and "H-7" in body
+
+    # The enrolled student sees it under /portal/exams.
+    login(client, s.student_number, "portal-pass-1", path="/portal/login", field="student_number")
+    body = client.get("/portal/exams").get_data(as_text=True)
+    assert "EXM101" in body and "2033-12-10" in body
+
+    # Anonymous users are redirected away from both pages.
+    fresh = webapp_client_fresh()
+    assert fresh.get("/exams").status_code == 302
+    assert fresh.get("/portal/exams").status_code == 302
+
+
+def webapp_client_fresh():
+    import webapp
+    return webapp.app.test_client()

@@ -16,6 +16,7 @@ from section_service import SectionService
 from enrollment_service import EnrollmentService
 from grading_service import GradingService
 from attendance_service import AttendanceService
+from exam_service import ExamService
 from fee_service import FeeService
 from request_service import RequestService
 
@@ -146,6 +147,17 @@ def seed(conn):
     att.record_bulk(sec_cs101_f.section_id, "2026-02-10",
                     {created[3].student_id: "present", created[4].student_id: "absent"},
                     recorded_by="staff:s.alamri")
+
+    # Exam schedule for the current term (midterm + final per section).
+    exams = ExamService(conn)
+    exams.set_exam(sec_cs101_m.section_id, "midterm", "2026-03-10", "10:00", "12:00", "A-101")
+    exams.set_exam(sec_cs101_f.section_id, "midterm", "2026-03-10", "10:00", "12:00", "B-201")
+    exams.set_exam(sec_bus101_m.section_id, "midterm", "2026-03-12", "13:00", "15:00", "A-102")
+    exams.set_exam(sec_bus101_f.section_id, "midterm", "2026-03-12", "13:00", "15:00", "B-202")
+    exams.set_exam(sec_cs101_m.section_id, "final", "2026-05-20", "08:30", "10:30", "A-101")
+    exams.set_exam(sec_cs101_f.section_id, "final", "2026-05-20", "08:30", "10:30", "B-201")
+    exams.set_exam(sec_bus101_m.section_id, "final", "2026-05-24", "08:30", "10:30", "A-102")
+    exams.set_exam(sec_bus101_f.section_id, "final", "2026-05-24", "08:30", "10:30", "B-202")
 
     # One student pays fully; leave the rest with a balance.
     for entry in fees.get_fee_statement(created[0].student_id):
