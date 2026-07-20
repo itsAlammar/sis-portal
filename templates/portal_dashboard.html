@@ -1,4 +1,5 @@
 {% extends "portal_layout.html" %}
+{% from "_week_table.html" import week_table with context %}
 {% block title %}{{ t('nav.dashboard') }}{% endblock %}
 {% block content %}
 <div class="page-header"><h1>{{ student.display_name(locale) }}</h1></div>
@@ -43,5 +44,10 @@
       <a class="btn btn--ghost" href="{{ url_for('portal_financial') }}">{{ t('fin.view_details') }}</a>
     </div>
   </div>
+</div>
+
+<div class="card" style="margin-top:14px;">
+  <h2>{{ t('schedule.my') }} <a class="btn btn--ghost btn--small" href="{{ url_for('portal_schedule') }}">{{ t('schedule.my') }} →</a></h2>
+  {{ week_table(week_groups, week_unscheduled) }}
 </div>
 {% endblock %}

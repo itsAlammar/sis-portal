@@ -590,3 +590,67 @@ def test_sections_conflicts_card_and_draft(client, tmp_path):
     kinds = {x.kind for x in TimetableService(c).section_conflicts(term.term_id)}
     c.close()
     assert "teacher" not in kinds
+
+
+def _portal_student_with_schedule(tmp_path):
+    """A logged-in-able portal student enrolled in a scheduled current-term
+    section. Returns (student_number, password)."""
+    from database import get_connection
+    from course_service import CourseService
+    from section_service import SectionService
+    from term_service import TermService
+    from student_service import StudentService
+    from enrollment_service import EnrollmentService
+    from auth_service import AuthService
+    c = get_connection(tmp_path / "web.db")
+    mid = c.execute("SELECT major_id FROM majors WHERE code='CS'").fetchone()["major_id"]
+    term = TermService(c).add_term("Now", "2030-01-01", "2030-05-01")
+    TermService(c).set_current_term(term.term_id)
+    course = CourseService(c).add_course("CS101", "Intro", 3, title_ar="مقدمة")
+    sec = SectionService(c).add_section(course.course_id, term.term_id, "01", gender="male",
+                                        room="B1-100", days="SUN,TUE", start_time="09:00",
+                                        end_time="09:50", capacity=5)
+    s = StudentService(c).add_student("Week", "Viewer", "week@s.edu",
+                                      national_id="6666666666", gender="male", major_id=mid)
+    EnrollmentService(c).enroll_student(s.student_id, sec.section_id)
+    AuthService(c).set_student_password(s.student_id, "week-pass-1")
+    num = s.student_number
+    c.close()
+    return num
+
+
+def test_portal_dashboard_and_grades_show_timetable(client, tmp_path):
+    num = _portal_student_with_schedule(tmp_path)
+    client.post("/portal/login", data={
+        "student_number": num, "password": "week-pass-1",
+        "csrf_token": _csrf(client, "/portal/login"),
+    })
+    dash = client.get("/portal").get_data(as_text=True)
+    assert "CS101" in dash and "B1-100" in dash            # timetable card on dashboard
+    grades = client.get("/portal/grades").get_data(as_text=True)
+    assert "CS101" in grades and "B1-100" in grades        # timetable card on grades
+
+
+def test_my_courses_rename(client, tmp_path):
+    num = _portal_student_with_schedule(tmp_path)
+    client.post("/portal/login", data={
+        "student_number": num, "password": "week-pass-1",
+        "csrf_token": _csrf(client, "/portal/login"),
+    })
+    # Arabic label is موادي, not درجاتي.
+    client.get("/lang/ar")
+    ar = client.get("/portal").get_data(as_text=True)
+    assert "موادي" in ar and "درجاتي" not in ar
+    # English label is "My courses".
+    client.get("/lang/en")
+    en = client.get("/portal").get_data(as_text=True)
+    assert "My courses" in en
+
+
+def test_portal_exams_page_present(client, tmp_path):
+    num = _portal_student_with_schedule(tmp_path)
+    client.post("/portal/login", data={
+        "student_number": num, "password": "week-pass-1",
+        "csrf_token": _csrf(client, "/portal/login"),
+    })
+    assert client.get("/portal/exams").status_code == 200

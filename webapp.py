@@ -1207,6 +1207,23 @@ def _week_groups(entries):
     return groups, unscheduled
 
 
+def _student_week(conn, student_id):
+    """Weekly-timetable groups for a student's current-term enrolled courses,
+    reused by the dashboard, grades, and dedicated timetable pages."""
+    current = TermService(conn).get_current_term()
+    entries = []
+    for r in EnrollmentService(conn).list_student_enrollments(
+            student_id, term_id=current.term_id if current else None):
+        if r["status"] not in ("enrolled", "completed"):
+            continue
+        entries.append({"days": r["days"], "start_time": r["start_time"],
+                        "end_time": r["end_time"], "room": r["room"],
+                        "course_code": r["course_code"],
+                        "title": r["title_ar"] if locale() == "ar" and r["title_ar"] else r["title"],
+                        "section_number": r["section_number"]})
+    return _week_groups(entries)
+
+
 @app.route("/sections/<int:section_id>/schedule", methods=["POST"])
 @staff_required("admin", "registrar")
 def sections_set_schedule(section_id):
@@ -1247,19 +1264,7 @@ def teach_schedule():
 @portal_login_required
 def portal_schedule():
     conn = get_db()
-    sid = session["portal_student_id"]
-    current = TermService(conn).get_current_term()
-    entries = []
-    for r in EnrollmentService(conn).list_student_enrollments(
-            sid, term_id=current.term_id if current else None):
-        if r["status"] not in ("enrolled", "completed"):
-            continue
-        entries.append({"days": r["days"], "start_time": r["start_time"],
-                        "end_time": r["end_time"], "room": r["room"],
-                        "course_code": r["course_code"],
-                        "title": r["title_ar"] if locale() == "ar" and r["title_ar"] else r["title"],
-                        "section_number": r["section_number"]})
-    groups, unscheduled = _week_groups(entries)
+    groups, unscheduled = _student_week(conn, session["portal_student_id"])
     return render_template("portal_schedule.html", groups=groups, unscheduled=unscheduled)
 
 
@@ -1602,12 +1607,14 @@ def portal_dashboard():
                   if r["status"] == "enrolled"]
     statement = fees.list_fees_for_student(sid)
     total_paid = sum(fees.get_total_paid(f.fee_id) for f in statement if f.status != "waived")
+    groups, unscheduled = _student_week(conn, sid)
     return render_template("portal_dashboard.html", student=StudentService(conn).get_student(sid),
                            cum_gpa=cum, standing=gpa.get_academic_standing(cum, locale()),
                            earned_hours=gpa.get_earned_credit_hours(sid),
                            remaining_hours=gpa.get_remaining_credit_hours(sid),
                            balance=fees.get_student_balance(sid),
-                           my_courses=my_courses, total_paid=round(total_paid, 2))
+                           my_courses=my_courses, total_paid=round(total_paid, 2),
+                           week_groups=groups, week_unscheduled=unscheduled)
 
 
 @app.route("/portal/registration", methods=["GET", "POST"])
@@ -1675,9 +1682,11 @@ def portal_grades():
         label = f"{year.name} — {tm.display_name(locale())}" if year else tm.display_name(locale())
         term_options.append((tm.term_id, label))
     cum = gpa.calculate_cumulative_gpa(sid)
+    groups, unscheduled = _student_week(conn, sid)
     return render_template("portal_grades.html", blocks=blocks, cum_gpa=cum,
                            standing=gpa.get_academic_standing(cum, locale()),
-                           term_options=term_options, sel_term=term_id)
+                           term_options=term_options, sel_term=term_id,
+                           week_groups=groups, week_unscheduled=unscheduled)
 
 
 @app.route("/portal/plan")

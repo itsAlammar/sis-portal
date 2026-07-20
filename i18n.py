@@ -86,7 +86,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "reg.available": {"en": "Available sections", "ar": "الشُّعب المتاحة"},
     "reg.same_gender": {"en": "Only sections matching your gender are shown.",
                         "ar": "تظهر لك شُعب جنسك فقط."},
-    "nav.my_grades": {"en": "My grades", "ar": "درجاتي"},
+    "nav.my_grades": {"en": "My courses", "ar": "موادي"},
     "nav.transcript": {"en": "Transcript", "ar": "السجل الأكاديمي"},
     "nav.other_services": {"en": "Other services", "ar": "خدمات أخرى"},
     "nav.my_sections": {"en": "My sections", "ar": "شُعبي"},
