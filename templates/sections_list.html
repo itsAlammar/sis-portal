@@ -9,7 +9,7 @@
   <table style="margin-top:12px;">
     <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('section.number') }}</th><th>{{ t('common.gender') }}</th><th>{{ t('role.teacher') }}</th><th class="num">{{ t('common.seats') }}</th><th>{{ t('common.status') }}</th></tr></thead>
     <tbody>{% for r in sections %}<tr>
-      <td><a href="{{ url_for('sections_detail', section_id=r.section.section_id) }}">{{ r.course.course_code }}</a></td>
+      <td><a href="{{ url_for('sections_detail', section_id=r.section.section_id) }}">{{ r.course.course_code }}</a>{% if r.conflict %} <span title="{{ t('timetable.conflict_flag') }}">⚠️</span>{% endif %}</td>
       <td>{{ r.section.section_number }}</td>
       <td>{{ t('common.male') if r.section.gender=='male' else t('common.female') }}</td>
       <td>{{ r.teacher.display_name(locale) if r.teacher else t('section.tbd') }}</td>
@@ -20,4 +20,34 @@
   {{ pager(page, pages) }}
   {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
 </div>
+
+{% if conflict_term_id %}
+<div class="grid-2" style="margin-top:14px;">
+  <div class="card">
+    <h2>{{ t('timetable.conflicts') }}</h2>
+    {% if conflict_cards %}
+    <table>
+      <thead><tr><th>{{ t('common.type') }}</th><th>{{ t('common.details') }}</th></tr></thead>
+      <tbody>{% for c in conflict_cards %}<tr>
+        <td><span class="stamp stamp--attention">{{ t('timetable.conflict_' + c.kind) }}</span></td>
+        <td>{{ c.a }} ↔ {{ c.b }}{% if c.ref %} <span class="muted">— {{ c.ref }}</span>{% endif %}</td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="muted">{{ t('timetable.conflict_none') }}</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>{{ t('timetable.generate_draft') }}</h2>
+    <p class="muted">{{ t('timetable.generate_hint') }}</p>
+    <form method="post" action="{{ url_for('sections_generate_draft') }}" onsubmit="return confirm('{{ t('timetable.generate_draft') }}?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="term_id" value="{{ conflict_term_id }}">
+      <label style="display:flex; gap:8px; align-items:center; font-weight:normal;">
+        <input type="checkbox" name="overwrite" value="1" style="width:auto;">
+        <span>{{ t('timetable.overwrite_fixed') }}</span>
+      </label>
+      <div class="actions-row"><button class="btn--primary">{{ t('timetable.generate_draft') }}</button></div>
+    </form>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

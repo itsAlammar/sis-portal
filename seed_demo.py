@@ -11,6 +11,7 @@ from student_service import StudentService
 from teacher_service import TeacherService
 from course_service import CourseService
 from major_service import MajorService
+from curriculum_service import CurriculumService
 from term_service import TermService
 from section_service import SectionService
 from enrollment_service import EnrollmentService
@@ -74,6 +75,18 @@ def seed(conn):
     for c, ts in [(cs101, [t_m1, t_f1]), (cs102, [t_m1, t_f1]), (bus101, [t_f2]), (math101, [t_m2])]:
         for t in ts:
             courses.assign_teacher(c.course_id, t.teacher_id)
+
+    # Structured degree plan for the male CS major: required core spread over
+    # two levels plus one elective, so "My plan" shows completed / in-progress
+    # / remaining and a prerequisite warning (CS102 needs CS101).
+    curriculum = CurriculumService(conn)
+    for cid, level, kind in [
+        (cs101.course_id, 1, "required"),
+        (math101.course_id, 1, "required"),
+        (cs102.course_id, 2, "required"),
+        (bus101.course_id, 2, "elective"),
+    ]:
+        curriculum.add_course(cs_m.major_id, cid, level=level, kind=kind)
 
     sections = SectionService(conn)
     # Gender-segregated sections of the same course.

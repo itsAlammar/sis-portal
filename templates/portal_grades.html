@@ -1,4 +1,5 @@
 {% extends "portal_layout.html" %}
+{% from "_week_table.html" import week_table with context %}
 {% block title %}{{ t('nav.my_grades') }}{% endblock %}
 {% block content %}
 <div class="page-header"><h1>{{ t('nav.my_grades') }} <a class="btn btn--ghost btn--small" href="{{ url_for('portal_transcript_pdf') }}">📄 {{ t('action.download_pdf') }}</a></h1>
@@ -11,6 +12,10 @@
       {% for tid, label in term_options %}<option value="{{ tid }}" {{ 'selected' if sel_term==tid }}>{{ label }}</option>{% endfor %}
     </select>
   </form>
+</div>
+<div class="card" style="margin-top:14px;">
+  <h2>{{ t('schedule.my') }}</h2>
+  {{ week_table(week_groups, week_unscheduled) }}
 </div>
 {% for term, rows, term_gpa in blocks %}
 <div class="card" style="margin-top:14px;">

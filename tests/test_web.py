@@ -485,3 +485,172 @@ def test_admissions_row_shows_full_application_details(client):
     for fragment in ["فهد عمر علي الحربي", "Fahd Omar Ali Harbi", "1098765432",
                      "2006-02-15", "0559990000", "fullinfo@x.com"]:
         assert fragment in body
+
+
+def _major_id(tmp_path):
+    from database import get_connection
+    c = get_connection(tmp_path / "web.db")
+    mid = c.execute("SELECT major_id FROM majors WHERE code='CS'").fetchone()["major_id"]
+    c.close()
+    return mid
+
+
+def test_major_curriculum_management(client, tmp_path):
+    login(client, "reg", "reg-pass-1")
+    # Create a course to place in the plan.
+    tok = _csrf(client, "/courses/add")
+    client.post("/courses/add", data={
+        "course_code": "CS101", "title": "Intro", "title_ar": "مقدمة",
+        "credit_hours": "3", "price": "0", "coursework_max": "50", "csrf_token": tok,
+    })
+    mid = _major_id(tmp_path)
+    from database import get_connection
+    c = get_connection(tmp_path / "web.db")
+    cid = c.execute("SELECT course_id FROM courses WHERE course_code='CS101'").fetchone()["course_id"]
+    c.close()
+
+    # Add it to the plan at level 2.
+    tok = _csrf(client, f"/majors/{mid}")
+    r = client.post(f"/majors/{mid}/curriculum/add", data={
+        "course_id": str(cid), "level": "2", "kind": "required", "csrf_token": tok,
+    })
+    assert r.status_code == 302
+    body = client.get(f"/majors/{mid}").get_data(as_text=True)
+    assert "CS101" in body
+
+    # Remove it.
+    from database import get_connection as gc
+    c = gc(tmp_path / "web.db")
+    curr_id = c.execute("SELECT curriculum_id FROM curriculum_courses").fetchone()["curriculum_id"]
+    c.close()
+    tok = _csrf(client, f"/majors/{mid}")
+    client.post(f"/majors/{mid}/curriculum/{curr_id}/remove", data={"csrf_token": tok})
+    c = gc(tmp_path / "web.db")
+    assert c.execute("SELECT COUNT(*) AS n FROM curriculum_courses").fetchone()["n"] == 0
+    c.close()
+
+
+def test_portal_plan_page_shows_levels(client, tmp_path):
+    from database import get_connection
+    from course_service import CourseService
+    from curriculum_service import CurriculumService
+    from student_service import StudentService
+    from auth_service import AuthService
+    c = get_connection(tmp_path / "web.db")
+    mid = c.execute("SELECT major_id FROM majors WHERE code='CS'").fetchone()["major_id"]
+    course = CourseService(c).add_course("CS101", "Intro", 3, title_ar="مقدمة")
+    CurriculumService(c).add_course(mid, course.course_id, level=1, kind="required")
+    s = StudentService(c).add_student("Plan", "Student", "plan@s.edu",
+                                      national_id="7777777777", gender="male", major_id=mid)
+    AuthService(c).set_student_password(s.student_id, "plan-pass-1")
+    num = s.student_number
+    c.close()
+
+    r = client.post("/portal/login", data={
+        "student_number": num, "password": "plan-pass-1",
+        "csrf_token": _csrf(client, "/portal/login"),
+    })
+    assert r.status_code in (302, 200)
+    body = client.get("/portal/plan").get_data(as_text=True)
+    assert "CS101" in body
+
+
+def test_sections_conflicts_card_and_draft(client, tmp_path):
+    from database import get_connection
+    from course_service import CourseService
+    from section_service import SectionService
+    from teacher_service import TeacherService
+    c = get_connection(tmp_path / "web.db")
+    # The client fixture has no term; create one plus two sections that clash.
+    from term_service import TermService
+    term = TermService(c).add_term("T1", "2030-01-01", "2030-05-01")
+    TermService(c).set_current_term(term.term_id)
+    t = TeacherService(c).add_teacher("Om", "Ha", "omha@t.edu", gender="male")
+    course = CourseService(c).add_course("CS101", "Intro", 3)
+    secs = SectionService(c)
+    a = secs.add_section(course.course_id, term.term_id, "01", teacher_id=t.teacher_id,
+                         gender="male", days="SUN", start_time="09:00", end_time="09:50")
+    b = secs.add_section(course.course_id, term.term_id, "02", teacher_id=t.teacher_id,
+                         gender="male", days="SUN", start_time="09:30", end_time="10:20")
+    c.close()
+
+    login(client, "reg", "reg-pass-1")
+    body = client.get(f"/sections?term_id={term.term_id}").get_data(as_text=True)
+    assert "⚠️" in body                        # conflict flag on a row
+    assert "Teacher double-booked" in body     # conflict card
+
+    # Generate a draft (overwrite everything) -> resolves the teacher clash.
+    tok = _csrf(client, f"/sections?term_id={term.term_id}")
+    r = client.post("/sections/generate-draft", data={
+        "term_id": str(term.term_id), "overwrite": "1", "csrf_token": tok,
+    })
+    assert r.status_code == 302
+    from timetable_service import TimetableService
+    c = get_connection(tmp_path / "web.db")
+    kinds = {x.kind for x in TimetableService(c).section_conflicts(term.term_id)}
+    c.close()
+    assert "teacher" not in kinds
+
+
+def _portal_student_with_schedule(tmp_path):
+    """A logged-in-able portal student enrolled in a scheduled current-term
+    section. Returns (student_number, password)."""
+    from database import get_connection
+    from course_service import CourseService
+    from section_service import SectionService
+    from term_service import TermService
+    from student_service import StudentService
+    from enrollment_service import EnrollmentService
+    from auth_service import AuthService
+    c = get_connection(tmp_path / "web.db")
+    mid = c.execute("SELECT major_id FROM majors WHERE code='CS'").fetchone()["major_id"]
+    term = TermService(c).add_term("Now", "2030-01-01", "2030-05-01")
+    TermService(c).set_current_term(term.term_id)
+    course = CourseService(c).add_course("CS101", "Intro", 3, title_ar="مقدمة")
+    sec = SectionService(c).add_section(course.course_id, term.term_id, "01", gender="male",
+                                        room="B1-100", days="SUN,TUE", start_time="09:00",
+                                        end_time="09:50", capacity=5)
+    s = StudentService(c).add_student("Week", "Viewer", "week@s.edu",
+                                      national_id="6666666666", gender="male", major_id=mid)
+    EnrollmentService(c).enroll_student(s.student_id, sec.section_id)
+    AuthService(c).set_student_password(s.student_id, "week-pass-1")
+    num = s.student_number
+    c.close()
+    return num
+
+
+def test_portal_dashboard_and_grades_show_timetable(client, tmp_path):
+    num = _portal_student_with_schedule(tmp_path)
+    client.post("/portal/login", data={
+        "student_number": num, "password": "week-pass-1",
+        "csrf_token": _csrf(client, "/portal/login"),
+    })
+    dash = client.get("/portal").get_data(as_text=True)
+    assert "CS101" in dash and "B1-100" in dash            # timetable card on dashboard
+    grades = client.get("/portal/grades").get_data(as_text=True)
+    assert "CS101" in grades and "B1-100" in grades        # timetable card on grades
+
+
+def test_my_courses_rename(client, tmp_path):
+    num = _portal_student_with_schedule(tmp_path)
+    client.post("/portal/login", data={
+        "student_number": num, "password": "week-pass-1",
+        "csrf_token": _csrf(client, "/portal/login"),
+    })
+    # Arabic label is موادي, not درجاتي.
+    client.get("/lang/ar")
+    ar = client.get("/portal").get_data(as_text=True)
+    assert "موادي" in ar and "درجاتي" not in ar
+    # English label is "My courses".
+    client.get("/lang/en")
+    en = client.get("/portal").get_data(as_text=True)
+    assert "My courses" in en
+
+
+def test_portal_exams_page_present(client, tmp_path):
+    num = _portal_student_with_schedule(tmp_path)
+    client.post("/portal/login", data={
+        "student_number": num, "password": "week-pass-1",
+        "csrf_token": _csrf(client, "/portal/login"),
+    })
+    assert client.get("/portal/exams").status_code == 200

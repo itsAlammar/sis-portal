@@ -30,8 +30,10 @@ from student_service import StudentService
 from teacher_service import TeacherService
 from course_service import CourseService
 from major_service import MajorService
+from curriculum_service import CurriculumService
 from term_service import TermService
 from section_service import SectionService
+from timetable_service import TimetableService
 from enrollment_service import EnrollmentService
 from grading_service import GradingService
 from gpa_service import GPAService
@@ -897,6 +899,55 @@ def majors_add():
     return redirect(url_for("majors_list"))
 
 
+@app.route("/majors/<int:major_id>")
+@staff_required("admin", "registrar")
+def majors_detail(major_id):
+    conn = get_db()
+    major = MajorService(conn).get_major(major_id)
+    curriculum = CurriculumService(conn)
+    entries = curriculum.list_for_major(major_id)
+    # Group the plan by level for the display, and offer only courses not yet
+    # in the plan in the "add" dropdown.
+    by_level, in_plan = {}, {e["course_id"] for e in entries}
+    for e in entries:
+        by_level.setdefault(e["level"], []).append(e)
+    levels = [(lvl, by_level[lvl]) for lvl in sorted(by_level)]
+    available_courses = [c for c in CourseService(conn).list_courses()
+                         if c.course_id not in in_plan]
+    return render_template("major_detail.html", major=major, levels=levels,
+                           plan_hours=curriculum.plan_total_hours(major_id),
+                           available_courses=available_courses,
+                           levels_range=range(1, 9))
+
+
+@app.route("/majors/<int:major_id>/curriculum/add", methods=["POST"])
+@staff_required("admin", "registrar")
+def majors_curriculum_add(major_id):
+    f = request.form
+    try:
+        entry = CurriculumService(get_db()).add_course(
+            major_id, int(f["course_id"]), level=int(f.get("level") or 1),
+            kind=f.get("kind", "required"), elective_block=f.get("elective_block", ""))
+        audit("curriculum.add", "major", major_id,
+              f"course_id={f['course_id']} level={f.get('level')}")
+        flash(i18n.t("flash.saved", locale()), "success")
+    except (SISError, ValueError) as e:
+        flash(str(e), "error")
+    return redirect(url_for("majors_detail", major_id=major_id))
+
+
+@app.route("/majors/<int:major_id>/curriculum/<int:curriculum_id>/remove", methods=["POST"])
+@staff_required("admin", "registrar")
+def majors_curriculum_remove(major_id, curriculum_id):
+    try:
+        CurriculumService(get_db()).remove_course(curriculum_id)
+        audit("curriculum.remove", "major", major_id, f"curriculum_id={curriculum_id}")
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("majors_detail", major_id=major_id))
+
+
 # ======================================================================
 # Terms & academic years
 # ======================================================================
@@ -949,13 +1000,59 @@ def sections_list():
     sections, courses, teachers, terms = SectionService(conn), CourseService(conn), TeacherService(conn), TermService(conn)
     term_id = request.args.get("term_id", type=int)
     page, pages, limit, offset = paginate(sections.count_sections(term_id=term_id))
+    # Timetable conflicts are computed for one term only (there is no single
+    # timetable spanning "all terms").
+    current = terms.get_current_term()
+    conflict_term_id = term_id or (current.term_id if current else None)
+    conflict_ids, conflict_cards = set(), []
+    if conflict_term_id:
+        conflicts = TimetableService(conn).section_conflicts(conflict_term_id)
+        conflict_ids = {c.a.section_id for c in conflicts} | {c.b.section_id for c in conflicts}
+        for c in conflicts:
+            conflict_cards.append({
+                "kind": c.kind,
+                "a": courses.get_course(c.a.course_id).course_code + " " + c.a.section_number,
+                "b": courses.get_course(c.b.course_id).course_code + " " + c.b.section_number,
+                "ref": _conflict_ref(conn, c),
+            })
     rows = []
     for sec in sections.list_sections(term_id=term_id, limit=limit, offset=offset):
         rows.append({"section": sec, "course": courses.get_course(sec.course_id),
                      "teacher": teachers.get_teacher(sec.teacher_id) if sec.teacher_id else None,
-                     "enrolled": sections.get_enrolled_count(sec.section_id)})
+                     "enrolled": sections.get_enrolled_count(sec.section_id),
+                     "conflict": sec.section_id in conflict_ids})
     return render_template("sections_list.html", sections=rows, terms=terms.list_terms(),
-                           selected_term_id=term_id, page=page, pages=pages)
+                           selected_term_id=term_id, page=page, pages=pages,
+                           conflict_cards=conflict_cards, conflict_term_id=conflict_term_id)
+
+
+def _conflict_ref(conn, c):
+    """Human-readable label for what a conflict is over (teacher / room / student)."""
+    if c.kind == "teacher":
+        t = TeacherService(conn).get_teacher(c.ref)
+        return t.display_name(locale())
+    if c.kind == "room":
+        return c.ref
+    if c.kind == "student":
+        return StudentService(conn).get_student(c.ref).display_name(locale())
+    return ""
+
+
+@app.route("/sections/generate-draft", methods=["POST"])
+@staff_required("admin", "registrar")
+def sections_generate_draft():
+    conn = get_db()
+    term_id = request.form.get("term_id", type=int)
+    if not term_id:
+        flash(i18n.t("timetable.no_term", locale()), "error")
+        return redirect(url_for("sections_list"))
+    overwrite = request.form.get("overwrite") == "1"
+    result = TimetableService(conn).generate_draft(term_id, overwrite_fixed=overwrite)
+    audit("timetable.draft", "term", term_id,
+          f"placed={result['placed']} kept={result['kept']} unplaced={len(result['unplaced'])}")
+    flash(i18n.t("timetable.draft_done", locale(), placed=result["placed"],
+                 unplaced=len(result["unplaced"])), "success")
+    return redirect(url_for("sections_list", term_id=term_id))
 
 
 @app.route("/sections/add", methods=["GET", "POST"])
@@ -1110,6 +1207,23 @@ def _week_groups(entries):
     return groups, unscheduled
 
 
+def _student_week(conn, student_id):
+    """Weekly-timetable groups for a student's current-term enrolled courses,
+    reused by the dashboard, grades, and dedicated timetable pages."""
+    current = TermService(conn).get_current_term()
+    entries = []
+    for r in EnrollmentService(conn).list_student_enrollments(
+            student_id, term_id=current.term_id if current else None):
+        if r["status"] not in ("enrolled", "completed"):
+            continue
+        entries.append({"days": r["days"], "start_time": r["start_time"],
+                        "end_time": r["end_time"], "room": r["room"],
+                        "course_code": r["course_code"],
+                        "title": r["title_ar"] if locale() == "ar" and r["title_ar"] else r["title"],
+                        "section_number": r["section_number"]})
+    return _week_groups(entries)
+
+
 @app.route("/sections/<int:section_id>/schedule", methods=["POST"])
 @staff_required("admin", "registrar")
 def sections_set_schedule(section_id):
@@ -1150,19 +1264,7 @@ def teach_schedule():
 @portal_login_required
 def portal_schedule():
     conn = get_db()
-    sid = session["portal_student_id"]
-    current = TermService(conn).get_current_term()
-    entries = []
-    for r in EnrollmentService(conn).list_student_enrollments(
-            sid, term_id=current.term_id if current else None):
-        if r["status"] not in ("enrolled", "completed"):
-            continue
-        entries.append({"days": r["days"], "start_time": r["start_time"],
-                        "end_time": r["end_time"], "room": r["room"],
-                        "course_code": r["course_code"],
-                        "title": r["title_ar"] if locale() == "ar" and r["title_ar"] else r["title"],
-                        "section_number": r["section_number"]})
-    groups, unscheduled = _week_groups(entries)
+    groups, unscheduled = _student_week(conn, session["portal_student_id"])
     return render_template("portal_schedule.html", groups=groups, unscheduled=unscheduled)
 
 
@@ -1505,12 +1607,14 @@ def portal_dashboard():
                   if r["status"] == "enrolled"]
     statement = fees.list_fees_for_student(sid)
     total_paid = sum(fees.get_total_paid(f.fee_id) for f in statement if f.status != "waived")
+    groups, unscheduled = _student_week(conn, sid)
     return render_template("portal_dashboard.html", student=StudentService(conn).get_student(sid),
                            cum_gpa=cum, standing=gpa.get_academic_standing(cum, locale()),
                            earned_hours=gpa.get_earned_credit_hours(sid),
                            remaining_hours=gpa.get_remaining_credit_hours(sid),
                            balance=fees.get_student_balance(sid),
-                           my_courses=my_courses, total_paid=round(total_paid, 2))
+                           my_courses=my_courses, total_paid=round(total_paid, 2),
+                           week_groups=groups, week_unscheduled=unscheduled)
 
 
 @app.route("/portal/registration", methods=["GET", "POST"])
@@ -1578,9 +1682,22 @@ def portal_grades():
         label = f"{year.name} — {tm.display_name(locale())}" if year else tm.display_name(locale())
         term_options.append((tm.term_id, label))
     cum = gpa.calculate_cumulative_gpa(sid)
+    groups, unscheduled = _student_week(conn, sid)
     return render_template("portal_grades.html", blocks=blocks, cum_gpa=cum,
                            standing=gpa.get_academic_standing(cum, locale()),
-                           term_options=term_options, sel_term=term_id)
+                           term_options=term_options, sel_term=term_id,
+                           week_groups=groups, week_unscheduled=unscheduled)
+
+
+@app.route("/portal/plan")
+@portal_login_required
+def portal_plan():
+    conn = get_db()
+    sid = session["portal_student_id"]
+    student = StudentService(conn).get_student(sid)
+    plan = CurriculumService(conn).plan_for_student(sid)
+    major = MajorService(conn).get_major(student.major_id) if student.major_id else None
+    return render_template("portal_plan.html", plan=plan, major=major, student=student)
 
 
 @app.route("/portal/exams")
