@@ -1,0 +1,9 @@
+{% extends "portal_layout.html" %}
+{% from "_week_table.html" import week_table with context %}
+{% block title %}{{ t('schedule.my') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('schedule.my') }}</h1>
+  {% if current_term %}<span class="stamp stamp--default">{{ current_term.display_name(locale) }}</span>{% endif %}
+</div>
+<div class="card">{{ week_table(groups, unscheduled) }}</div>
+{% endblock %}

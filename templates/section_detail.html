@@ -15,6 +15,23 @@
       <button class="btn--small">{{ t('action.update') }}</button>
     </form>
 
+    <h2 style="margin-top:18px;">{{ t('schedule.section_card') }}</h2>
+    <form method="post" action="{{ url_for('sections_set_schedule', section_id=section.section_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        {% set current_days = (section.days or '').split(',') %}
+        {% for d in ['SUN','MON','TUE','WED','THU'] %}
+        <label style="font-weight:400;"><input type="checkbox" name="days" value="{{ d }}" {{ 'checked' if d in current_days }}> {{ t('day.' + d|lower) }}</label>
+        {% endfor %}
+      </div>
+      <div class="grid-2">
+        <div><label>{{ t('section.start') }}</label><input type="time" name="start_time" value="{{ section.start_time or '' }}"></div>
+        <div><label>{{ t('section.end') }}</label><input type="time" name="end_time" value="{{ section.end_time or '' }}"></div>
+      </div>
+      <label>{{ t('section.room') }}</label><input name="room" value="{{ section.room or '' }}">
+      <div class="actions-row"><button class="btn--small btn--primary">{{ t('action.save') }}</button></div>
+    </form>
+
     <h2 style="margin-top:18px;">{{ t('action.enroll') }}</h2>
     {% if eligible_students %}
     <form method="post" action="{{ url_for('sections_enroll_student', section_id=section.section_id) }}">

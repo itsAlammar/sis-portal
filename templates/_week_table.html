@@ -1,0 +1,31 @@
+{% macro week_table(groups, unscheduled) %}
+{% if groups or unscheduled %}
+<table>
+  <thead><tr><th style="width:120px;">{{ t('section.days') }}</th><th>{{ t('nav.courses') }}</th></tr></thead>
+  <tbody>
+    {% for day, entries in groups %}
+    <tr>
+      <td><strong>{{ t('day.' + day|lower) }}</strong></td>
+      <td>
+        {% for e in entries %}
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:4px 0;">
+          <span class="stamp stamp--default num">{{ e.start_time or '—' }}–{{ e.end_time or '—' }}</span>
+          <strong>{{ e.course_code }}</strong>
+          <span class="muted">{{ e.title }}</span>
+          <span class="muted">{{ t('common.section') }} {{ e.section_number }}</span>
+          {% if e.room %}<span class="muted">{{ t('section.room') }} {{ e.room }}</span>{% endif %}
+        </div>
+        {% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+    {% if unscheduled %}
+    <tr>
+      <td class="muted">{{ t('schedule.unscheduled') }}</td>
+      <td>{% for e in unscheduled %}<div class="muted">{{ e.course_code }} — {{ e.title }} ({{ t('common.section') }} {{ e.section_number }})</div>{% endfor %}</td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>
+{% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+{% endmacro %}

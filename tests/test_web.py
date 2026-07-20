@@ -424,3 +424,49 @@ def test_exam_schedule_pages(client):
 def webapp_client_fresh():
     import webapp
     return webapp.app.test_client()
+
+
+def test_weekly_schedule_pages(client):
+    import database
+    from database import get_connection
+    from term_service import TermService
+    from course_service import CourseService
+    from section_service import SectionService
+    from enrollment_service import EnrollmentService
+    from teacher_service import TeacherService
+    from auth_service import AuthService as _Auth
+
+    s = _make_portal_student("51")
+    conn = get_connection(database.DB_PATH)
+    term = TermService(conn).add_term("F2034", "2034-09-01", "2034-12-20")
+    TermService(conn).set_current_term(term.term_id)
+    t = TeacherService(conn).add_teacher("Sami", "Q", "sq@t.edu", "سامي", gender="male")
+    _Auth(conn).create_user("sami.q", "teach-pass-77", "teacher", teacher_id=t.teacher_id)
+    course = CourseService(conn).add_course("TT101", "Timetabled", 3)
+    sec = SectionService(conn).add_section(course.course_id, term.term_id, "01",
+                                           teacher_id=t.teacher_id, gender="male", capacity=5,
+                                           days="SUN,TUE", start_time="10:00",
+                                           end_time="11:30", room="R-9")
+    EnrollmentService(conn).enroll_student(s.student_id, sec.section_id)
+    conn.close()
+
+    # Student sees the class under Sunday with time and room.
+    login(client, s.student_number, "portal-pass-1", path="/portal/login", field="student_number")
+    body = client.get("/portal/schedule").get_data(as_text=True)
+    assert "Sunday" in body and "TT101" in body and "10:00" in body and "R-9" in body
+
+    # Teacher sees the same class on their timetable.
+    login(client, "sami.q", "teach-pass-77")
+    body = client.get("/teach/schedule").get_data(as_text=True)
+    assert "Sunday" in body and "TT101" in body
+
+    # Registrar edits the schedule from the section page.
+    login(client, "admin", "admin-pass-1")
+    client.post(f"/sections/{sec.section_id}/schedule",
+                data={"days": ["MON", "WED"], "start_time": "13:00", "end_time": "14:15",
+                      "room": "R-2", "csrf_token": _csrf(client, f"/sections/{sec.section_id}")})
+    conn = get_connection(database.DB_PATH)
+    row = conn.execute("SELECT days, room FROM sections WHERE section_id=?",
+                       (sec.section_id,)).fetchone()
+    conn.close()
+    assert row["days"] == "MON,WED" and row["room"] == "R-2"

@@ -19,6 +19,7 @@
     <ul class="nav-list">
       {% if staff_user and staff_user.role == 'teacher' %}
         <li><a href="{{ url_for('teach_dashboard') }}">{{ t('nav.my_sections') }}</a></li>
+        <li><a href="{{ url_for('teach_schedule') }}" class="{{ 'active' if request.endpoint=='teach_schedule' }}">{{ t('schedule.my') }}</a></li>
       {% elif staff_user and staff_user.role == 'accounting' %}
         <li><a href="{{ url_for('financial_overview') }}">{{ t('nav.financial') }}</a></li>
       {% else %}

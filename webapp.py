@@ -1090,6 +1090,83 @@ def _apply_grades(section_id, enforce_deadline=False):
 
 
 # ======================================================================
+# Weekly timetable
+# ======================================================================
+DAY_ORDER = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+
+
+def _week_groups(entries):
+    """Groups class entries (dicts with days/start_time/...) into an
+    ordered weekly view; entries without any day go to `unscheduled`."""
+    by_day, unscheduled = {}, []
+    for e in entries:
+        days = [d.strip().upper() for d in (e.get("days") or "").split(",") if d.strip()]
+        if not days:
+            unscheduled.append(e)
+        for d in days:
+            by_day.setdefault(d, []).append(e)
+    groups = [(d, sorted(by_day[d], key=lambda x: x.get("start_time") or ""))
+              for d in DAY_ORDER if d in by_day]
+    return groups, unscheduled
+
+
+@app.route("/sections/<int:section_id>/schedule", methods=["POST"])
+@staff_required("admin", "registrar")
+def sections_set_schedule(section_id):
+    f = request.form
+    days = ",".join(d for d in f.getlist("days") if d in DAY_ORDER)
+    try:
+        SectionService(get_db()).update_section(
+            section_id, days=days, start_time=f.get("start_time", ""),
+            end_time=f.get("end_time", ""), room=f.get("room", ""))
+        audit("section.schedule", "section", section_id, f"{days} {f.get('start_time', '')}")
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("sections_detail", section_id=section_id))
+
+
+@app.route("/teach/schedule")
+@staff_required("teacher")
+def teach_schedule():
+    conn = get_db()
+    user = current_staff()
+    sections, courses, terms = SectionService(conn), CourseService(conn), TermService(conn)
+    current = terms.get_current_term()
+    entries = []
+    for sec in sections.list_sections(teacher_id=user.teacher_id,
+                                      term_id=current.term_id if current else None):
+        course = courses.get_course(sec.course_id)
+        entries.append({"days": sec.days, "start_time": sec.start_time, "end_time": sec.end_time,
+                        "room": sec.room, "course_code": course.course_code,
+                        "title": course.display_title(locale()),
+                        "section_number": sec.section_number})
+    groups, unscheduled = _week_groups(entries)
+    return render_template("schedule.html", groups=groups, unscheduled=unscheduled,
+                           page_title=i18n.t("schedule.my", locale()))
+
+
+@app.route("/portal/schedule")
+@portal_login_required
+def portal_schedule():
+    conn = get_db()
+    sid = session["portal_student_id"]
+    current = TermService(conn).get_current_term()
+    entries = []
+    for r in EnrollmentService(conn).list_student_enrollments(
+            sid, term_id=current.term_id if current else None):
+        if r["status"] not in ("enrolled", "completed"):
+            continue
+        entries.append({"days": r["days"], "start_time": r["start_time"],
+                        "end_time": r["end_time"], "room": r["room"],
+                        "course_code": r["course_code"],
+                        "title": r["title_ar"] if locale() == "ar" and r["title_ar"] else r["title"],
+                        "section_number": r["section_number"]})
+    groups, unscheduled = _week_groups(entries)
+    return render_template("portal_schedule.html", groups=groups, unscheduled=unscheduled)
+
+
+# ======================================================================
 # Exam schedule
 # ======================================================================
 @app.route("/exams", methods=["GET", "POST"])

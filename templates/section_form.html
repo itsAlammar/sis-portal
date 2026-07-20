@@ -15,7 +15,7 @@
     <div><label>{{ t('section.room') }}</label><input name="room"></div>
   </div>
   <label>{{ t('section.days') }}</label>
-  <div style="display:flex; gap:10px; flex-wrap:wrap;">{% for d in ['SUN','MON','TUE','WED','THU'] %}<label style="font-weight:400;"><input type="checkbox" name="days" value="{{ d }}"> {{ d }}</label>{% endfor %}</div>
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">{% for d in ['SUN','MON','TUE','WED','THU'] %}<label style="font-weight:400;"><input type="checkbox" name="days" value="{{ d }}"> {{ t('day.' + d|lower) }}</label>{% endfor %}</div>
   <div class="grid-2"><div><label>{{ t('section.start') }}</label><input type="time" name="start_time"></div><div><label>{{ t('section.end') }}</label><input type="time" name="end_time"></div></div>
   <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
 </form>
