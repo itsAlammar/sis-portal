@@ -52,6 +52,15 @@ if not os.environ.get("SIS_SECRET_KEY"):
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                   MAX_CONTENT_LENGTH=4 * 1024 * 1024)
 
+# Initialize the schema/migrations once at import time rather than on every
+# request. Per-request init re-ran the full schema script + migration + commit
+# for each connection; doing it once keeps request handling lean.
+_init_conn = get_connection()
+try:
+    initialize_database(_init_conn)
+finally:
+    _init_conn.close()
+
 PER_PAGE = 25
 
 STATUS_KIND = {
@@ -119,7 +128,6 @@ def _safe_count(fn):
 def get_db():
     if "db" not in g:
         g.db = get_connection()
-        initialize_database(g.db)
     return g.db
 
 

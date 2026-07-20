@@ -46,29 +46,41 @@ class EnrollmentService:
 
         self._check_add_deadline(section, as_of)
 
-        existing = self.conn.execute(
-            "SELECT 1 FROM enrollments WHERE student_id = ? AND section_id = ?",
-            (student_id, section_id),
-        ).fetchone()
-        if existing:
-            raise DuplicateEnrollmentError(f"{student.full_name} is already enrolled in this section.")
+        # Duplicate/capacity check and the insert must be atomic: without an
+        # exclusive write lock two concurrent enrollments could both pass the
+        # capacity check and overfill the section (the DB's UNIQUE constraint
+        # only guards duplicates, not capacity). BEGIN IMMEDIATE serializes
+        # writers around the read-decide-write.
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            existing = self.conn.execute(
+                "SELECT 1 FROM enrollments WHERE student_id = ? AND section_id = ?",
+                (student_id, section_id),
+            ).fetchone()
+            if existing:
+                raise DuplicateEnrollmentError(
+                    f"{student.full_name} is already enrolled in this section."
+                )
 
-        if self.sections.get_enrolled_count(section_id) >= section.capacity:
-            raise CapacityError("This section is at full capacity.")
+            if self.sections.get_enrolled_count(section_id) >= section.capacity:
+                raise CapacityError("This section is at full capacity.")
 
-        course = self.courses.get_course(section.course_id)
-        self._check_prerequisites(student_id, course.course_id)
+            course = self.courses.get_course(section.course_id)
+            self._check_prerequisites(student_id, course.course_id)
 
-        if not override_conflicts:
-            self._check_schedule_conflict(student_id, section)
+            if not override_conflicts:
+                self._check_schedule_conflict(student_id, section)
 
-        enrollment_date = date.today().isoformat()
-        cur = self.conn.execute(
-            """INSERT INTO enrollments (student_id, section_id, enrollment_date, status)
-               VALUES (?, ?, ?, 'enrolled')""",
-            (student_id, section_id, enrollment_date),
-        )
-        self.conn.commit()
+            enrollment_date = date.today().isoformat()
+            cur = self.conn.execute(
+                """INSERT INTO enrollments (student_id, section_id, enrollment_date, status)
+                   VALUES (?, ?, ?, 'enrolled')""",
+                (student_id, section_id, enrollment_date),
+            )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
         return self.get_enrollment(cur.lastrowid)
 
     def enroll_or_waitlist(self, student_id: int, section_id: int):
