@@ -16,7 +16,26 @@
   {% for a in applications %}
     <tr>
       <td>{{ a.national_id }}</td>
-      <td>{{ a.name_ar if locale=='ar' else a.full_name_en }}<br><span class="muted">{{ a.email }}</span></td>
+      <td>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <details class="nav-menu">
+            <summary class="icon-link" title="{{ t('adm.full_details') }}">ℹ️</summary>
+            <div class="menu-pop" style="min-width:300px;">
+              <div class="ledger-row"><span class="label">{{ t('student.name_ar') }}</span><span class="value">{{ a.name_ar }}</span></div>
+              <div class="ledger-row"><span class="label">{{ t('common.name') }} (EN)</span><span class="value">{{ a.full_name_en }}</span></div>
+              <div class="ledger-row"><span class="label">{{ t('common.national_id') }}</span><span class="value num">{{ a.national_id }}</span></div>
+              <div class="ledger-row"><span class="label">{{ t('common.date_of_birth') }}</span><span class="value num">{{ a.date_of_birth or '—' }}</span></div>
+              <div class="ledger-row"><span class="label">{{ t('common.email') }}</span><span class="value" style="font-weight:400;">{{ a.email }}</span></div>
+              <div class="ledger-row"><span class="label">{{ t('common.mobile') }}</span><span class="value num">{{ a.phone or '—' }}</span></div>
+              <div class="ledger-row"><span class="label">{{ t('common.gender') }}</span><span class="value">{{ t('common.male') if a.gender=='male' else t('common.female') }}</span></div>
+              <div class="ledger-row"><span class="label">{{ t('common.nationality') }}</span><span class="value">{{ t('common.saudi') if a.nationality=='Saudi' else t('common.non_saudi') }}</span></div>
+              <div class="ledger-row"><span class="label">{{ t('student.major') }}</span><span class="value">{{ majors[a.major_id].name(locale) if a.major_id and majors.get(a.major_id) else '—' }}</span></div>
+              <div class="ledger-row"><span class="label">{{ t('adm.submitted_at') }}</span><span class="value num">{{ a.created_at.split('T')[0] }}</span></div>
+            </div>
+          </details>
+          <div>{{ a.name_ar if locale=='ar' else a.full_name_en }}<br><span class="muted">{{ a.email }}</span></div>
+        </div>
+      </td>
       <td>{{ t('common.male') if a.gender=='male' else t('common.female') }}</td>
       <td>{{ t('common.saudi') if a.nationality=='Saudi' else t('common.non_saudi') }}</td>
       <td>{{ majors[a.major_id].name(locale) if a.major_id and majors.get(a.major_id) else '—' }}</td>

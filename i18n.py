@@ -353,6 +353,8 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "flash.last_admin_disable": {"en": "You can't disable the last active admin (or yourself).",
                                  "ar": "لا يمكن تعطيل آخر مدير نشط (أو حسابك أنت)."},
     "adm.not_approved": {"en": "Application is not approved yet.", "ar": "الطلب غير مقبول بعد."},
+    "adm.full_details": {"en": "Full application details", "ar": "بيانات الطلب كاملة"},
+    "adm.submitted_at": {"en": "Submitted on", "ar": "تاريخ التقديم"},
     "adm.rejected": {"en": "Application rejected.", "ar": "تم رفض الطلب."},
     "auth.current_password": {"en": "Current password", "ar": "كلمة المرور الحالية"},
     "empty.none": {"en": "Nothing here yet.", "ar": "لا يوجد شيء بعد."},

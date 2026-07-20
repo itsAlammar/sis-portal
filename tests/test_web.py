@@ -470,3 +470,18 @@ def test_weekly_schedule_pages(client):
                        (sec.section_id,)).fetchone()
     conn.close()
     assert row["days"] == "MON,WED" and row["room"] == "R-2"
+
+
+def test_admissions_row_shows_full_application_details(client):
+    tok = _csrf(client, "/apply")
+    client.post("/apply", data={
+        "national_id": "1098765432", "first_name": "Fahd", "second_name": "Omar",
+        "third_name": "Ali", "last_name": "Harbi", "name_ar": "فهد عمر علي الحربي",
+        "email": "fullinfo@x.com", "phone": "0559990000", "date_of_birth": "2006-02-15",
+        "gender": "male", "nationality": "Saudi", "csrf_token": tok,
+    })
+    login(client, "admin", "admin-pass-1")
+    body = client.get("/admissions").get_data(as_text=True)
+    for fragment in ["فهد عمر علي الحربي", "Fahd Omar Ali Harbi", "1098765432",
+                     "2006-02-15", "0559990000", "fullinfo@x.com"]:
+        assert fragment in body
