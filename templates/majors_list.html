@@ -7,7 +7,7 @@
     {% if majors %}
     <table>
       <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('common.name') }}</th><th class="num">{{ t('course.credits') }}</th><th>{{ t('common.gender') }}</th></tr></thead>
-      <tbody>{% for m in majors %}<tr><td>{{ m.code }}</td><td>{{ m.name(locale) }}</td><td class="num">{{ m.required_credit_hours }}</td><td>{{ t('common.all') if m.gender=='any' else (t('common.male') if m.gender=='male' else t('common.female')) }}</td></tr>{% endfor %}</tbody>
+      <tbody>{% for m in majors %}<tr><td><a href="{{ url_for('majors_detail', major_id=m.major_id) }}">{{ m.code }}</a></td><td>{{ m.name(locale) }}</td><td class="num">{{ m.required_credit_hours }}</td><td>{{ t('common.all') if m.gender=='any' else (t('common.male') if m.gender=='male' else t('common.female')) }}</td></tr>{% endfor %}</tbody>
     </table>
     {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
   </div>

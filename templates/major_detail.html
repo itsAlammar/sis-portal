@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+{% block title %}{{ major.name(locale) }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ major.code }} — {{ major.name(locale) }}</h1>
+  <a class="btn btn--ghost" href="{{ url_for('majors_list') }}">← {{ t('nav.majors') }}</a>
+</div>
+<div class="card">
+  <div style="display:flex; gap:20px; flex-wrap:wrap;">
+    <span class="stamp stamp--default">{{ t('plan.required_hours') }}: {{ major.required_credit_hours }}</span>
+    <span class="stamp stamp--default">{{ t('plan.plan_hours') }}: {{ plan_hours }}</span>
+    <span class="stamp stamp--default">{{ t('common.gender') }}: {{ t('common.all') if major.gender=='any' else (t('common.male') if major.gender=='male' else t('common.female')) }}</span>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-top:14px;">
+  <div class="card">
+    <h2>{{ t('plan.manage') }}</h2>
+    {% if levels %}
+    {% for level, items in levels %}
+    <h3 style="margin:14px 0 6px;">{{ t('plan.level', n=level) }}</h3>
+    <table>
+      <thead><tr><th>{{ t('course.code') }}</th><th>{{ t('course.title') }}</th><th class="num">{{ t('course.credits') }}</th><th>{{ t('plan.kind') }}</th><th></th></tr></thead>
+      <tbody>{% for e in items %}<tr>
+        <td>{{ e['course_code'] }}</td>
+        <td>{{ e['title_ar'] if locale=='ar' and e['title_ar'] else e['title'] }}
+          {% if e['elective_block'] %}<span class="muted">({{ e['elective_block'] }})</span>{% endif %}</td>
+        <td class="num">{{ e['credit_hours'] }}</td>
+        <td><span class="stamp stamp--{{ 'default' if e['kind']=='required' else 'progress' }}">{{ t('plan.kind_required') if e['kind']=='required' else t('plan.kind_elective') }}</span></td>
+        <td>
+          <form method="post" action="{{ url_for('majors_curriculum_remove', major_id=major.major_id, curriculum_id=e['curriculum_id']) }}" style="margin:0;" onsubmit="return confirm('{{ t('action.delete') }}?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn--ghost btn--small">✕</button>
+          </form>
+        </td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% endfor %}
+    {% else %}<div class="empty-state">{{ t('plan.empty') }}</div>{% endif %}
+  </div>
+
+  <div class="card">
+    <h2>{{ t('plan.add_course') }}</h2>
+    {% if available_courses %}
+    <form method="post" action="{{ url_for('majors_curriculum_add', major_id=major.major_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>{{ t('course.title') }}</label>
+      <select name="course_id" required>
+        {% for c in available_courses %}<option value="{{ c.course_id }}">{{ c.course_code }} — {{ c.display_title(locale) }} ({{ c.credit_hours }})</option>{% endfor %}
+      </select>
+      <div class="grid-2">
+        <div><label>{{ t('plan.level', n='') }}</label>
+          <select name="level">{% for l in levels_range %}<option value="{{ l }}">{{ l }}</option>{% endfor %}</select></div>
+        <div><label>{{ t('plan.kind') }}</label>
+          <select name="kind"><option value="required">{{ t('plan.kind_required') }}</option><option value="elective">{{ t('plan.kind_elective') }}</option></select></div>
+      </div>
+      <label>{{ t('plan.elective_block') }}</label><input name="elective_block" placeholder="—">
+      <div class="actions-row"><button class="btn--primary">{{ t('action.add') }}</button></div>
+    </form>
+    {% else %}<p class="muted">{{ t('empty.none') }}</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

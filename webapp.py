@@ -30,6 +30,7 @@ from student_service import StudentService
 from teacher_service import TeacherService
 from course_service import CourseService
 from major_service import MajorService
+from curriculum_service import CurriculumService
 from term_service import TermService
 from section_service import SectionService
 from enrollment_service import EnrollmentService
@@ -897,6 +898,55 @@ def majors_add():
     return redirect(url_for("majors_list"))
 
 
+@app.route("/majors/<int:major_id>")
+@staff_required("admin", "registrar")
+def majors_detail(major_id):
+    conn = get_db()
+    major = MajorService(conn).get_major(major_id)
+    curriculum = CurriculumService(conn)
+    entries = curriculum.list_for_major(major_id)
+    # Group the plan by level for the display, and offer only courses not yet
+    # in the plan in the "add" dropdown.
+    by_level, in_plan = {}, {e["course_id"] for e in entries}
+    for e in entries:
+        by_level.setdefault(e["level"], []).append(e)
+    levels = [(lvl, by_level[lvl]) for lvl in sorted(by_level)]
+    available_courses = [c for c in CourseService(conn).list_courses()
+                         if c.course_id not in in_plan]
+    return render_template("major_detail.html", major=major, levels=levels,
+                           plan_hours=curriculum.plan_total_hours(major_id),
+                           available_courses=available_courses,
+                           levels_range=range(1, 9))
+
+
+@app.route("/majors/<int:major_id>/curriculum/add", methods=["POST"])
+@staff_required("admin", "registrar")
+def majors_curriculum_add(major_id):
+    f = request.form
+    try:
+        entry = CurriculumService(get_db()).add_course(
+            major_id, int(f["course_id"]), level=int(f.get("level") or 1),
+            kind=f.get("kind", "required"), elective_block=f.get("elective_block", ""))
+        audit("curriculum.add", "major", major_id,
+              f"course_id={f['course_id']} level={f.get('level')}")
+        flash(i18n.t("flash.saved", locale()), "success")
+    except (SISError, ValueError) as e:
+        flash(str(e), "error")
+    return redirect(url_for("majors_detail", major_id=major_id))
+
+
+@app.route("/majors/<int:major_id>/curriculum/<int:curriculum_id>/remove", methods=["POST"])
+@staff_required("admin", "registrar")
+def majors_curriculum_remove(major_id, curriculum_id):
+    try:
+        CurriculumService(get_db()).remove_course(curriculum_id)
+        audit("curriculum.remove", "major", major_id, f"curriculum_id={curriculum_id}")
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("majors_detail", major_id=major_id))
+
+
 # ======================================================================
 # Terms & academic years
 # ======================================================================
@@ -1581,6 +1631,17 @@ def portal_grades():
     return render_template("portal_grades.html", blocks=blocks, cum_gpa=cum,
                            standing=gpa.get_academic_standing(cum, locale()),
                            term_options=term_options, sel_term=term_id)
+
+
+@app.route("/portal/plan")
+@portal_login_required
+def portal_plan():
+    conn = get_db()
+    sid = session["portal_student_id"]
+    student = StudentService(conn).get_student(sid)
+    plan = CurriculumService(conn).plan_for_student(sid)
+    major = MajorService(conn).get_major(student.major_id) if student.major_id else None
+    return render_template("portal_plan.html", plan=plan, major=major, student=student)
 
 
 @app.route("/portal/exams")

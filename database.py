@@ -131,6 +131,16 @@ CREATE TABLE IF NOT EXISTS course_prerequisites (
     PRIMARY KEY (course_id, prerequisite_course_id)
 );
 
+CREATE TABLE IF NOT EXISTS curriculum_courses (
+    curriculum_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    major_id       INTEGER NOT NULL REFERENCES majors(major_id),
+    course_id      INTEGER NOT NULL REFERENCES courses(course_id),
+    level          INTEGER NOT NULL DEFAULT 1,        -- suggested level/semester (1..8)
+    kind           TEXT NOT NULL DEFAULT 'required',  -- required, elective
+    elective_block TEXT,                              -- optional grouping label for electives
+    UNIQUE(major_id, course_id)
+);
+
 CREATE TABLE IF NOT EXISTS academic_years (
     year_id   INTEGER PRIMARY KEY AUTOINCREMENT,
     name      TEXT UNIQUE NOT NULL,   -- e.g. "2025-2026"
@@ -313,6 +323,7 @@ CREATE INDEX IF NOT EXISTS idx_applications_status ON admission_applications(sta
 CREATE INDEX IF NOT EXISTS idx_requests_status ON service_requests(status);
 CREATE INDEX IF NOT EXISTS idx_requests_student ON service_requests(student_id);
 CREATE INDEX IF NOT EXISTS idx_exams_section ON exam_schedule(section_id);
+CREATE INDEX IF NOT EXISTS idx_curriculum_major ON curriculum_courses(major_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_section ON attendance(section_id, date);
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at);
 """

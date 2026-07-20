@@ -485,3 +485,71 @@ def test_admissions_row_shows_full_application_details(client):
     for fragment in ["فهد عمر علي الحربي", "Fahd Omar Ali Harbi", "1098765432",
                      "2006-02-15", "0559990000", "fullinfo@x.com"]:
         assert fragment in body
+
+
+def _major_id(tmp_path):
+    from database import get_connection
+    c = get_connection(tmp_path / "web.db")
+    mid = c.execute("SELECT major_id FROM majors WHERE code='CS'").fetchone()["major_id"]
+    c.close()
+    return mid
+
+
+def test_major_curriculum_management(client, tmp_path):
+    login(client, "reg", "reg-pass-1")
+    # Create a course to place in the plan.
+    tok = _csrf(client, "/courses/add")
+    client.post("/courses/add", data={
+        "course_code": "CS101", "title": "Intro", "title_ar": "مقدمة",
+        "credit_hours": "3", "price": "0", "coursework_max": "50", "csrf_token": tok,
+    })
+    mid = _major_id(tmp_path)
+    from database import get_connection
+    c = get_connection(tmp_path / "web.db")
+    cid = c.execute("SELECT course_id FROM courses WHERE course_code='CS101'").fetchone()["course_id"]
+    c.close()
+
+    # Add it to the plan at level 2.
+    tok = _csrf(client, f"/majors/{mid}")
+    r = client.post(f"/majors/{mid}/curriculum/add", data={
+        "course_id": str(cid), "level": "2", "kind": "required", "csrf_token": tok,
+    })
+    assert r.status_code == 302
+    body = client.get(f"/majors/{mid}").get_data(as_text=True)
+    assert "CS101" in body
+
+    # Remove it.
+    from database import get_connection as gc
+    c = gc(tmp_path / "web.db")
+    curr_id = c.execute("SELECT curriculum_id FROM curriculum_courses").fetchone()["curriculum_id"]
+    c.close()
+    tok = _csrf(client, f"/majors/{mid}")
+    client.post(f"/majors/{mid}/curriculum/{curr_id}/remove", data={"csrf_token": tok})
+    c = gc(tmp_path / "web.db")
+    assert c.execute("SELECT COUNT(*) AS n FROM curriculum_courses").fetchone()["n"] == 0
+    c.close()
+
+
+def test_portal_plan_page_shows_levels(client, tmp_path):
+    from database import get_connection
+    from course_service import CourseService
+    from curriculum_service import CurriculumService
+    from student_service import StudentService
+    from auth_service import AuthService
+    c = get_connection(tmp_path / "web.db")
+    mid = c.execute("SELECT major_id FROM majors WHERE code='CS'").fetchone()["major_id"]
+    course = CourseService(c).add_course("CS101", "Intro", 3, title_ar="مقدمة")
+    CurriculumService(c).add_course(mid, course.course_id, level=1, kind="required")
+    s = StudentService(c).add_student("Plan", "Student", "plan@s.edu",
+                                      national_id="7777777777", gender="male", major_id=mid)
+    AuthService(c).set_student_password(s.student_id, "plan-pass-1")
+    num = s.student_number
+    c.close()
+
+    r = client.post("/portal/login", data={
+        "student_number": num, "password": "plan-pass-1",
+        "csrf_token": _csrf(client, "/portal/login"),
+    })
+    assert r.status_code in (302, 200)
+    body = client.get("/portal/plan").get_data(as_text=True)
+    assert "CS101" in body
