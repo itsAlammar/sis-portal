@@ -518,3 +518,85 @@ def test_curriculum_plan_none_without_major(world):
     s = StudentService(conn).add_student("No", "Major", "nomajor@s.edu",
                                          national_id="3333333333", gender="male")
     assert CurriculumService(conn).plan_for_student(s.student_id) is None
+
+
+# -- timetable conflict detection & draft generation ----------------------
+
+def _sched(conn, section_id, days, start, end, room=None):
+    from section_service import SectionService
+    fields = {"days": days, "start_time": start, "end_time": end}
+    if room is not None:
+        fields["room"] = room
+    SectionService(conn).update_section(section_id, **fields)
+
+
+def test_timetable_teacher_and_room_conflicts(world):
+    from timetable_service import TimetableService
+    conn = world["conn"]
+    tt = TimetableService(conn)
+    tid = world["term"].term_id
+    # sec_m (t_m) and sec102_m (t_m) overlap -> teacher clash.
+    _sched(conn, world["sec_m"].section_id, "SUN,TUE", "09:00", "09:50", room="R1")
+    _sched(conn, world["sec102_m"].section_id, "SUN", "09:30", "10:20", room="R2")
+    kinds = {c.kind for c in tt.section_conflicts(tid)}
+    assert "teacher" in kinds
+    assert world["sec_m"].section_id in tt.conflicting_section_ids(tid)
+
+    # sec_f (t_f, different teacher) shares R1 with sec_m at the same time -> room clash.
+    _sched(conn, world["sec_f"].section_id, "SUN", "09:00", "09:50", room="R1")
+    kinds = {c.kind for c in tt.section_conflicts(tid)}
+    assert "room" in kinds
+
+    # Moving sec102_m off the overlap removes the teacher clash.
+    _sched(conn, world["sec102_m"].section_id, "MON", "11:00", "11:50", room="R2")
+    assert "teacher" not in {c.kind for c in tt.section_conflicts(tid)}
+
+
+def test_timetable_student_conflict(world):
+    from timetable_service import TimetableService
+    from section_service import SectionService
+    conn = world["conn"]
+    en = EnrollmentService(conn)
+    tid = world["term"].term_id
+    # A prereq-free course/section the male student can join alongside CS101.
+    phy = CourseService(conn).add_course("PHY101", "Physics", 3)
+    phy_sec = SectionService(conn).add_section(phy.course_id, tid, "01", gender="male", capacity=5)
+    _sched(conn, world["sec_m"].section_id, "SUN,TUE", "09:00", "09:50")
+    _sched(conn, phy_sec.section_id, "SUN", "09:30", "10:20")
+    # override_conflicts lets us construct the clash the report should then flag
+    # (normal enrollment would reject the second one).
+    en.enroll_student(world["male"].student_id, world["sec_m"].section_id)
+    en.enroll_student(world["male"].student_id, phy_sec.section_id, override_conflicts=True)
+    conflicts = TimetableService(conn).section_conflicts(tid)
+    assert any(c.kind == "student" for c in conflicts)
+
+
+def test_timetable_draft_avoids_teacher_room_clash(world):
+    from timetable_service import TimetableService
+    from section_service import SectionService
+    conn = world["conn"]
+    tt, secs = TimetableService(conn), SectionService(conn)
+    tid = world["term"].term_id
+    # Three unscheduled male sections, two share teacher t_m -> greedy must
+    # separate those in time.
+    result = tt.generate_draft(tid)
+    assert result["placed"] >= 3 and result["unplaced"] == []
+    # No teacher/room clash after the draft.
+    kinds = {c.kind for c in tt.section_conflicts(tid)}
+    assert "teacher" not in kinds and "room" not in kinds
+
+
+def test_timetable_draft_respects_fixed_sections(world):
+    from timetable_service import TimetableService
+    from section_service import SectionService
+    conn = world["conn"]
+    tt = TimetableService(conn)
+    tid = world["term"].term_id
+    _sched(conn, world["sec_m"].section_id, "SUN,TUE,THU", "08:00", "08:50")
+    result = tt.generate_draft(tid, overwrite_fixed=False)
+    assert result["kept"] >= 1
+    fixed = SectionService(conn).get_section(world["sec_m"].section_id)
+    assert fixed.days == "SUN,TUE,THU" and fixed.start_time == "08:00"
+    # No teacher/room clash introduced against the fixed section.
+    kinds = {c.kind for c in tt.section_conflicts(tid)}
+    assert "teacher" not in kinds and "room" not in kinds

@@ -33,6 +33,7 @@ from major_service import MajorService
 from curriculum_service import CurriculumService
 from term_service import TermService
 from section_service import SectionService
+from timetable_service import TimetableService
 from enrollment_service import EnrollmentService
 from grading_service import GradingService
 from gpa_service import GPAService
@@ -999,13 +1000,59 @@ def sections_list():
     sections, courses, teachers, terms = SectionService(conn), CourseService(conn), TeacherService(conn), TermService(conn)
     term_id = request.args.get("term_id", type=int)
     page, pages, limit, offset = paginate(sections.count_sections(term_id=term_id))
+    # Timetable conflicts are computed for one term only (there is no single
+    # timetable spanning "all terms").
+    current = terms.get_current_term()
+    conflict_term_id = term_id or (current.term_id if current else None)
+    conflict_ids, conflict_cards = set(), []
+    if conflict_term_id:
+        conflicts = TimetableService(conn).section_conflicts(conflict_term_id)
+        conflict_ids = {c.a.section_id for c in conflicts} | {c.b.section_id for c in conflicts}
+        for c in conflicts:
+            conflict_cards.append({
+                "kind": c.kind,
+                "a": courses.get_course(c.a.course_id).course_code + " " + c.a.section_number,
+                "b": courses.get_course(c.b.course_id).course_code + " " + c.b.section_number,
+                "ref": _conflict_ref(conn, c),
+            })
     rows = []
     for sec in sections.list_sections(term_id=term_id, limit=limit, offset=offset):
         rows.append({"section": sec, "course": courses.get_course(sec.course_id),
                      "teacher": teachers.get_teacher(sec.teacher_id) if sec.teacher_id else None,
-                     "enrolled": sections.get_enrolled_count(sec.section_id)})
+                     "enrolled": sections.get_enrolled_count(sec.section_id),
+                     "conflict": sec.section_id in conflict_ids})
     return render_template("sections_list.html", sections=rows, terms=terms.list_terms(),
-                           selected_term_id=term_id, page=page, pages=pages)
+                           selected_term_id=term_id, page=page, pages=pages,
+                           conflict_cards=conflict_cards, conflict_term_id=conflict_term_id)
+
+
+def _conflict_ref(conn, c):
+    """Human-readable label for what a conflict is over (teacher / room / student)."""
+    if c.kind == "teacher":
+        t = TeacherService(conn).get_teacher(c.ref)
+        return t.display_name(locale())
+    if c.kind == "room":
+        return c.ref
+    if c.kind == "student":
+        return StudentService(conn).get_student(c.ref).display_name(locale())
+    return ""
+
+
+@app.route("/sections/generate-draft", methods=["POST"])
+@staff_required("admin", "registrar")
+def sections_generate_draft():
+    conn = get_db()
+    term_id = request.form.get("term_id", type=int)
+    if not term_id:
+        flash(i18n.t("timetable.no_term", locale()), "error")
+        return redirect(url_for("sections_list"))
+    overwrite = request.form.get("overwrite") == "1"
+    result = TimetableService(conn).generate_draft(term_id, overwrite_fixed=overwrite)
+    audit("timetable.draft", "term", term_id,
+          f"placed={result['placed']} kept={result['kept']} unplaced={len(result['unplaced'])}")
+    flash(i18n.t("timetable.draft_done", locale(), placed=result["placed"],
+                 unplaced=len(result["unplaced"])), "success")
+    return redirect(url_for("sections_list", term_id=term_id))
 
 
 @app.route("/sections/add", methods=["GET", "POST"])

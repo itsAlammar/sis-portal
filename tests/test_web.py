@@ -553,3 +553,40 @@ def test_portal_plan_page_shows_levels(client, tmp_path):
     assert r.status_code in (302, 200)
     body = client.get("/portal/plan").get_data(as_text=True)
     assert "CS101" in body
+
+
+def test_sections_conflicts_card_and_draft(client, tmp_path):
+    from database import get_connection
+    from course_service import CourseService
+    from section_service import SectionService
+    from teacher_service import TeacherService
+    c = get_connection(tmp_path / "web.db")
+    # The client fixture has no term; create one plus two sections that clash.
+    from term_service import TermService
+    term = TermService(c).add_term("T1", "2030-01-01", "2030-05-01")
+    TermService(c).set_current_term(term.term_id)
+    t = TeacherService(c).add_teacher("Om", "Ha", "omha@t.edu", gender="male")
+    course = CourseService(c).add_course("CS101", "Intro", 3)
+    secs = SectionService(c)
+    a = secs.add_section(course.course_id, term.term_id, "01", teacher_id=t.teacher_id,
+                         gender="male", days="SUN", start_time="09:00", end_time="09:50")
+    b = secs.add_section(course.course_id, term.term_id, "02", teacher_id=t.teacher_id,
+                         gender="male", days="SUN", start_time="09:30", end_time="10:20")
+    c.close()
+
+    login(client, "reg", "reg-pass-1")
+    body = client.get(f"/sections?term_id={term.term_id}").get_data(as_text=True)
+    assert "⚠️" in body                        # conflict flag on a row
+    assert "Teacher double-booked" in body     # conflict card
+
+    # Generate a draft (overwrite everything) -> resolves the teacher clash.
+    tok = _csrf(client, f"/sections?term_id={term.term_id}")
+    r = client.post("/sections/generate-draft", data={
+        "term_id": str(term.term_id), "overwrite": "1", "csrf_token": tok,
+    })
+    assert r.status_code == 302
+    from timetable_service import TimetableService
+    c = get_connection(tmp_path / "web.db")
+    kinds = {x.kind for x in TimetableService(c).section_conflicts(term.term_id)}
+    c.close()
+    assert "teacher" not in kinds
