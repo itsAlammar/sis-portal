@@ -1,0 +1,15 @@
+#cloud-config
+# App node: Docker + the SIS container, pointed at the private Postgres.
+# --restart always retries until Postgres is reachable on first boot.
+package_update: true
+packages:
+  - docker.io
+runcmd:
+  - systemctl enable --now docker
+  - |
+    docker run -d --name sis --restart always \
+      -e DATABASE_URL='${database_url}' \
+      -e SIS_SECRET_KEY='${secret_key}' \
+      -e GUNICORN_CMD_ARGS='--workers=3 --timeout=60' \
+      -p 8000:8000 \
+      ${container_image}

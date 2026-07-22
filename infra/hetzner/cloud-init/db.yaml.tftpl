@@ -1,0 +1,23 @@
+#cloud-config
+# Postgres node: Docker + Postgres 16 on the attached data volume.
+# Public 5432 is blocked by the firewall; only the private network reaches it.
+package_update: true
+packages:
+  - docker.io
+runcmd:
+  - systemctl enable --now docker
+  # Wait for the attached Hetzner volume, format once, mount persistently.
+  - until ls /dev/disk/by-id/scsi-0HC_Volume_* >/dev/null 2>&1; do sleep 2; done
+  - DEV=$(ls /dev/disk/by-id/scsi-0HC_Volume_* | head -1)
+  - blkid "$DEV" >/dev/null 2>&1 || mkfs.ext4 -F "$DEV"
+  - mkdir -p /mnt/pgdata
+  - mount "$DEV" /mnt/pgdata
+  - grep -q /mnt/pgdata /etc/fstab || echo "$DEV /mnt/pgdata ext4 defaults,nofail 0 0" >> /etc/fstab
+  - |
+    docker run -d --name postgres --restart always \
+      -e POSTGRES_DB=${db_name} \
+      -e POSTGRES_USER=${db_username} \
+      -e POSTGRES_PASSWORD=${db_password} \
+      -v /mnt/pgdata:/var/lib/postgresql/data \
+      -p 5432:5432 \
+      postgres:16

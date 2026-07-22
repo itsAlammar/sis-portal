@@ -13,3 +13,8 @@ infra/aws/*.tfstate
 infra/aws/*.tfstate.*
 infra/aws/terraform.tfvars
 infra/aws/.terraform.lock.hcl
+infra/hetzner/.terraform/
+infra/hetzner/*.tfstate
+infra/hetzner/*.tfstate.*
+infra/hetzner/terraform.tfvars
+infra/hetzner/.terraform.lock.hcl
