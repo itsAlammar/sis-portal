@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars and fill in. Do NOT commit the real file
+# (terraform.tfvars is git-ignored).
+
+region          = "me-central-1"
+container_image = "<ACCOUNT>.dkr.ecr.me-central-1.amazonaws.com/sis:latest"
+
+db_password    = "change-me-strong-password"
+sis_secret_key = "change-me-long-random-string"
+
+# Optional overrides:
+# desired_count     = 2
+# db_instance_class = "db.t4g.micro"

@@ -10,6 +10,8 @@ import os
 import sqlite3
 from pathlib import Path
 
+import db
+
 DB_PATH = Path(os.environ.get("SIS_DB_DIR") or Path(__file__).parent) / "sis.db"
 
 # Saudi 5.0 grade scale: numeric mark (/100) -> letter -> grade points.
@@ -404,7 +406,12 @@ def _migrate(conn):
     conn.commit()
 
 
-def get_connection(db_path: Path = None) -> sqlite3.Connection:
+def get_connection(db_path: Path = None):
+    """Return a DB connection. Postgres when DATABASE_URL points at it
+    (production / AWS RDS), otherwise a local SQLite file. Both expose the
+    same sqlite3-style API — see db.py."""
+    if db.DIALECT == "postgres":
+        return db.connect_postgres()
     conn = sqlite3.connect(db_path if db_path is not None else DB_PATH, timeout=15)
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
@@ -419,16 +426,24 @@ def get_connection(db_path: Path = None) -> sqlite3.Connection:
     return conn
 
 
-def initialize_database(conn: sqlite3.Connection) -> None:
-    conn.executescript(SCHEMA)
-    _migrate(conn)
+def initialize_database(conn) -> None:
+    if db.DIALECT == "postgres":
+        conn.executescript(db.to_postgres_schema(SCHEMA))
+    else:
+        conn.executescript(SCHEMA)
+        _migrate(conn)   # forward-add columns for older SQLite files only
     if conn.execute("SELECT COUNT(*) AS c FROM grade_scale").fetchone()["c"] == 0:
         conn.executemany(
             "INSERT INTO grade_scale (letter, grade_points, min_percent, max_percent) "
             "VALUES (?, ?, ?, ?)", GRADE_SCALE,
         )
+    upsert = (
+        "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT DO NOTHING"
+        if db.DIALECT == "postgres"
+        else "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)"
+    )
     for key, value in DEFAULT_SETTINGS.items():
-        conn.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", (key, value))
+        conn.execute(upsert, (key, value))
     conn.commit()
 
 

@@ -1,3 +1,4 @@
 flask>=3.0
 gunicorn>=21.0
-reportlab>=4.0   # PDF transcript export
+reportlab>=4.0        # PDF transcript export
+psycopg2-binary>=2.9  # PostgreSQL driver (production / AWS RDS); unused on SQLite

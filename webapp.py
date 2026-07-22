@@ -138,6 +138,12 @@ def close_db(exception=None):
         db.close()
 
 
+@app.route("/healthz")
+def healthz():
+    """Liveness probe for load balancers / ECS health checks (no DB work)."""
+    return "ok", 200
+
+
 @app.errorhandler(SISError)
 def handle_sis_error(e):
     flash(str(e), "error")
