@@ -43,6 +43,7 @@ from request_service import RequestService
 from mail_service import MailService
 from attendance_service import AttendanceService
 from exam_service import ExamService
+from lms_service import LMSService
 import pdf_reports
 
 app = Flask(__name__)
@@ -1579,9 +1580,94 @@ def requests_review(request_id):
     return redirect(url_for("requests_list"))
 
 
+@app.route("/academics")
+@staff_required("admin", "registrar")
+def academics_hub():
+    """Unified admin hub: academic courses, majors, and LMS courses."""
+    conn = get_db()
+    return render_template(
+        "academics.html",
+        course_count=conn.execute("SELECT COUNT(*) AS c FROM courses").fetchone()["c"],
+        major_count=conn.execute("SELECT COUNT(*) AS c FROM majors").fetchone()["c"],
+        lms_count=LMSService(conn).count(),
+        lms_enabled=get_setting(conn, "lms_enabled", "0") == "1",
+    )
+
+
+def _lms_teachers(conn):
+    return TeacherService(conn).list_teachers(status="active")
+
+
 @app.route("/lms")
-def lms_placeholder():
-    return render_template("lms.html")
+@staff_required("admin", "registrar")
+def lms_list():
+    conn = get_db()
+    return render_template(
+        "lms_list.html",
+        courses=LMSService(conn).list_courses(),
+        teachers=_lms_teachers(conn),
+        lms_enabled=get_setting(conn, "lms_enabled", "0") == "1",
+    )
+
+
+@app.route("/lms/add", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_add():
+    conn = get_db()
+    f = request.form
+    try:
+        c = LMSService(conn).add_course(
+            title=f.get("title", ""), title_ar=f.get("title_ar", ""),
+            code=f.get("code", ""), description=f.get("description", ""),
+            description_ar=f.get("description_ar", ""), category=f.get("category", ""),
+            teacher_id=int(f["teacher_id"]) if f.get("teacher_id") else None,
+            status=f.get("status", "draft"),
+        )
+        audit("lms_course.create", "lms_course", c.lms_course_id, c.title)
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("lms_list"))
+
+
+@app.route("/lms/<int:lms_course_id>/edit", methods=["GET", "POST"])
+@staff_required("admin", "registrar")
+def lms_edit(lms_course_id):
+    conn = get_db()
+    lms = LMSService(conn)
+    course = lms.get_course(lms_course_id)
+    if request.method == "POST":
+        f = request.form
+        try:
+            lms.update_course(
+                lms_course_id,
+                code=(f.get("code", "").strip().upper() or None),
+                title=(f.get("title", "").strip() or None),
+                title_ar=(f.get("title_ar", "").strip() or None),
+                description=(f.get("description", "").strip() or None),
+                description_ar=(f.get("description_ar", "").strip() or None),
+                category=(f.get("category", "").strip() or None),
+                teacher_id=int(f["teacher_id"]) if f.get("teacher_id") else None,
+                status=f.get("status"),
+            )
+            audit("lms_course.update", "lms_course", lms_course_id, course.title)
+            flash(i18n.t("flash.saved", locale()), "success")
+            return redirect(url_for("lms_list"))
+        except SISError as e:
+            flash(str(e), "error")
+    return render_template("lms_form.html", course=course, teachers=_lms_teachers(conn))
+
+
+@app.route("/lms/<int:lms_course_id>/status", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_set_status(lms_course_id):
+    try:
+        LMSService(get_db()).set_status(lms_course_id, request.form.get("status", "draft"))
+        audit("lms_course.status", "lms_course", lms_course_id, request.form.get("status"))
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("lms_list"))
 
 
 # ======================================================================

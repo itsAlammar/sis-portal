@@ -667,3 +667,29 @@ def test_concurrent_enroll_respects_capacity(tmp_path):
     ).fetchone()["c"]
     check.close()
     assert count == 1
+
+
+# -- LMS courses (الدورات التعليمية) --------------------------------------
+
+def test_lms_course_lifecycle(conn):
+    from lms_service import LMSService
+    from exceptions import DuplicateError
+    svc = LMSService(conn)
+    c = svc.add_course(title="Python Basics", title_ar="أساسيات بايثون",
+                       code="lms1", category="Programming")
+    assert c.status == "draft" and c.code == "LMS1"
+    assert c.name("ar") == "أساسيات بايثون" and c.name("en") == "Python Basics"
+    assert svc.count() == 1
+
+    svc.set_status(c.lms_course_id, "published")
+    assert svc.get_course(c.lms_course_id).status == "published"
+    assert len(svc.list_courses(status="published")) == 1
+    assert len(svc.list_courses(status="draft")) == 0
+
+    # validation + uniqueness
+    with pytest.raises(ValidationError):
+        svc.add_course(title="   ")
+    with pytest.raises(ValidationError):
+        svc.set_status(c.lms_course_id, "bogus")
+    with pytest.raises(DuplicateError):
+        svc.add_course(title="Other", code="lms1")

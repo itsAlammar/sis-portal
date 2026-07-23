@@ -323,6 +323,20 @@ CREATE TABLE IF NOT EXISTS audit_log (
     details     TEXT
 );
 
+CREATE TABLE IF NOT EXISTS lms_courses (
+    lms_course_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    code           TEXT UNIQUE,
+    title          TEXT NOT NULL,
+    title_ar       TEXT,
+    description    TEXT,
+    description_ar TEXT,
+    category       TEXT,
+    teacher_id     INTEGER REFERENCES teachers(teacher_id) ON DELETE SET NULL,
+    status         TEXT NOT NULL DEFAULT 'draft'
+                   CHECK (status IN ('draft', 'published', 'archived')),
+    created_at     TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_section ON enrollments(section_id);
 CREATE INDEX IF NOT EXISTS idx_sections_course ON sections(course_id);

@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('nav.academics') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('nav.academics') }}</h1></div>
+<div class="grid-3">
+  <a class="card" href="{{ url_for('courses_list') }}" style="text-decoration:none; color:inherit;">
+    <h2>{{ t('nav.courses') }}</h2>
+    <p class="muted">{{ t('acad.courses_desc') }}</p>
+    <div class="stamp">{{ course_count }}</div>
+  </a>
+  <a class="card" href="{{ url_for('majors_list') }}" style="text-decoration:none; color:inherit;">
+    <h2>{{ t('nav.majors') }}</h2>
+    <p class="muted">{{ t('acad.majors_desc') }}</p>
+    <div class="stamp">{{ major_count }}</div>
+  </a>
+  <a class="card" href="{{ url_for('lms_list') }}" style="text-decoration:none; color:inherit;">
+    <h2>{{ t('nav.lms') }}</h2>
+    <p class="muted">{{ t('acad.lms_desc') }}</p>
+    <div class="stamp">{{ lms_count }}{% if not lms_enabled %} · {{ t('lms.disabled') }}{% endif %}</div>
+  </a>
+</div>
+{% endblock %}

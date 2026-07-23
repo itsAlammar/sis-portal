@@ -27,8 +27,7 @@
         <li><a href="{{ url_for('admissions_list') }}" class="{{ 'active' if request.endpoint and 'admission' in request.endpoint }}">{{ t('nav.admissions') }}{% if pending_admissions %}<span class="pill">{{ pending_admissions }}</span>{% endif %}</a></li>
         <li><a href="{{ url_for('students_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('students') }}">{{ t('nav.students') }}</a></li>
         <li><a href="{{ url_for('teachers_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('teachers') }}">{{ t('nav.teachers') }}</a></li>
-        <li><a href="{{ url_for('courses_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('courses') }}">{{ t('nav.courses') }}</a></li>
-        <li><a href="{{ url_for('majors_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('majors') }}">{{ t('nav.majors') }}</a></li>
+        <li><a href="{{ url_for('academics_hub') }}" class="{{ 'active' if request.endpoint and (request.endpoint == 'academics_hub' or request.endpoint.startswith('courses') or request.endpoint.startswith('majors') or request.endpoint.startswith('lms')) }}">{{ t('nav.academics') }}</a></li>
         <li><a href="{{ url_for('terms_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('terms') }}">{{ t('nav.terms') }}</a></li>
         <li><a href="{{ url_for('sections_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('sections') }}">{{ t('nav.sections') }}</a></li>
         <li><a href="{{ url_for('exams_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('exams') }}">{{ t('nav.exams') }}</a></li>
@@ -41,7 +40,6 @@
         {% endif %}
         <li><a href="{{ url_for('audit_log') }}" class="{{ 'active' if request.endpoint=='audit_log' }}">{{ t('nav.audit') }}</a></li>
       {% endif %}
-      <li><a href="{{ url_for('lms_placeholder') }}" class="soon">🎓 {{ t('nav.lms') }} <span class="badge-soon">{{ t('soon.badge') }}</span></a></li>
     </ul>
     <div style="margin-top:22px; padding-top:14px; border-top:1px solid rgba(245,244,239,0.15);">
       <a class="lang-toggle" href="{{ url_for('set_lang', code='ar' if locale=='en' else 'en') }}">{{ t('lang.toggle') }}</a>
