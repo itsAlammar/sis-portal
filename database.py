@@ -33,6 +33,15 @@ GRADE_SCALE = [
 ]
 GPA_SCALE_MAX = 5.0
 
+# Schema convention for NEW tables added from here on (SQLite's ALTER cannot
+# retrofit these onto existing tables without a full rebuild, so existing
+# tables keep their current shape):
+#   - Add CHECK(...) on bounded-value columns (status/gender/kind), the way
+#     `users.role` already does below.
+#   - Declare explicit ON DELETE on foreign keys: SET NULL for optional refs
+#     (e.g. advisor_id, teacher_id), RESTRICT for required ones. Avoid CASCADE
+#     on academic records (dropping a term must not silently delete sections /
+#     enrollments).
 SCHEMA = """
 PRAGMA foreign_keys = ON;
 
@@ -312,6 +321,20 @@ CREATE TABLE IF NOT EXISTS audit_log (
     entity_type TEXT,
     entity_id   INTEGER,
     details     TEXT
+);
+
+CREATE TABLE IF NOT EXISTS lms_courses (
+    lms_course_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    code           TEXT UNIQUE,
+    title          TEXT NOT NULL,
+    title_ar       TEXT,
+    description    TEXT,
+    description_ar TEXT,
+    category       TEXT,
+    teacher_id     INTEGER REFERENCES teachers(teacher_id) ON DELETE SET NULL,
+    status         TEXT NOT NULL DEFAULT 'draft'
+                   CHECK (status IN ('draft', 'published', 'archived')),
+    created_at     TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);

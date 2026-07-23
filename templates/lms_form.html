@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('action.edit') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('action.edit') }}: {{ course.name(locale) }}</h1></div>
+<div class="card">
+  <form method="post" action="{{ url_for('lms_edit', lms_course_id=course.lms_course_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>{{ t('lms.title') }} (EN)</label><input name="title" value="{{ course.title }}" required>
+    <label>{{ t('lms.title') }} (AR)</label><input name="title_ar" dir="rtl" value="{{ course.title_ar or '' }}">
+    <div class="grid-2">
+      <div><label>{{ t('course.code') }}</label><input name="code" value="{{ course.code or '' }}"></div>
+      <div><label>{{ t('lms.category') }}</label><input name="category" value="{{ course.category or '' }}"></div>
+    </div>
+    <label>{{ t('lms.instructor') }}</label>
+    <select name="teacher_id"><option value="">—</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}" {{ 'selected' if course.teacher_id == tt.teacher_id }}>{{ tt.name_ar or tt.first_name }}</option>{% endfor %}</select>
+    <label>{{ t('lms.description') }}</label><textarea name="description" rows="3">{{ course.description or '' }}</textarea>
+    <label>{{ t('common.status') }}</label>
+    <select name="status">{% for s in ['draft', 'published', 'archived'] %}<option value="{{ s }}" {{ 'selected' if course.status == s }}>{{ ts(s) }}</option>{% endfor %}</select>
+    <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button> <a class="btn btn--ghost" href="{{ url_for('lms_list') }}">{{ t('action.cancel') }}</a></div>
+  </form>
+</div>
+{% endblock %}

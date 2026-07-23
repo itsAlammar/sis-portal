@@ -399,3 +399,30 @@ class WaitlistEntry:
             row["waitlist_id"], row["student_id"], row["section_id"],
             row["joined_at"], row["status"],
         )
+
+
+@dataclass
+class LMSCourse:
+    lms_course_id: int
+    code: Optional[str]
+    title: str
+    title_ar: Optional[str]
+    description: Optional[str]
+    description_ar: Optional[str]
+    category: Optional[str]
+    teacher_id: Optional[int]
+    status: str
+    created_at: str
+
+    def name(self, locale="en"):
+        if locale == "ar":
+            return self.title_ar or self.title
+        return self.title
+
+    @classmethod
+    def from_row(cls, row):
+        return cls(
+            row["lms_course_id"], _g(row, "code"), row["title"], _g(row, "title_ar"),
+            _g(row, "description"), _g(row, "description_ar"), _g(row, "category"),
+            _g(row, "teacher_id"), _g(row, "status", "draft"), row["created_at"],
+        )

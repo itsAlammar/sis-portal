@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('nav.lms') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('nav.lms') }}</h1></div>
+{% if not lms_enabled %}<div class="flash flash--error">{{ t('lms.enable_hint') }}</div>{% endif %}
+<div class="grid-2">
+  <div class="card">
+    {% if courses %}
+    <table>
+      <thead><tr><th>{{ t('common.name') }}</th><th>{{ t('lms.category') }}</th><th>{{ t('common.status') }}</th><th>{{ t('common.actions') }}</th></tr></thead>
+      <tbody>
+      {% for c in courses %}
+        <tr>
+          <td><a href="{{ url_for('lms_edit', lms_course_id=c.lms_course_id) }}">{{ c.name(locale) }}</a></td>
+          <td>{{ c.category or '—' }}</td>
+          <td>{{ ts(c.status) }}</td>
+          <td><a class="btn btn--small" href="{{ url_for('lms_edit', lms_course_id=c.lms_course_id) }}">{{ t('action.edit') }}</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+  </div>
+  <div class="card">
+    <h2>{{ t('action.add') }}</h2>
+    <form method="post" action="{{ url_for('lms_add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>{{ t('lms.title') }} (EN)</label><input name="title" required>
+      <label>{{ t('lms.title') }} (AR)</label><input name="title_ar" dir="rtl">
+      <div class="grid-2">
+        <div><label>{{ t('course.code') }}</label><input name="code"></div>
+        <div><label>{{ t('lms.category') }}</label><input name="category"></div>
+      </div>
+      <label>{{ t('lms.instructor') }}</label>
+      <select name="teacher_id"><option value="">—</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}">{{ tt.name_ar or tt.first_name }}</option>{% endfor %}</select>
+      <label>{{ t('lms.description') }}</label><textarea name="description" rows="2"></textarea>
+      <label>{{ t('common.status') }}</label>
+      <select name="status"><option value="draft">{{ ts('draft') }}</option><option value="published">{{ ts('published') }}</option><option value="archived">{{ ts('archived') }}</option></select>
+      <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

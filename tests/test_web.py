@@ -654,3 +654,22 @@ def test_portal_exams_page_present(client, tmp_path):
         "csrf_token": _csrf(client, "/portal/login"),
     })
     assert client.get("/portal/exams").status_code == 200
+
+
+def test_academics_hub_and_lms_management(client):
+    # requires staff auth
+    assert client.get("/academics").status_code in (301, 302)
+    assert client.get("/lms").status_code in (301, 302)
+
+    login(client, "admin", "admin-pass-1")
+    hub = client.get("/academics").get_data(as_text=True)
+    assert "/courses" in hub and "/majors" in hub and "/lms" in hub
+
+    tok = _csrf(client, "/lms")
+    r = client.post("/lms/add", data={
+        "title": "Intro to Data", "title_ar": "مقدمة للبيانات",
+        "category": "Data", "status": "draft", "csrf_token": tok,
+    }, follow_redirects=True)
+    assert r.status_code == 200
+    listing = client.get("/lms").get_data(as_text=True)
+    assert "Intro to Data" in listing
