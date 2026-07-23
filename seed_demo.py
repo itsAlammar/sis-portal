@@ -23,6 +23,36 @@ from request_service import RequestService
 from lms_service import LMSService
 
 
+def _seed_lms_courses(conn):
+    """Add the demo LMS courses (training/learning offerings shown in the admin
+    console) with mixed statuses so the list shows how each renders. Idempotent:
+    a no-op when courses already exist, so it is safe to call as a top-up on an
+    already-seeded database. Returns the number of courses added."""
+    from database import set_setting
+    lms = LMSService(conn)
+    if lms.count() > 0:
+        return 0
+    set_setting(conn, "lms_enabled", "1")
+
+    def tid(email):
+        row = conn.execute("SELECT teacher_id FROM teachers WHERE email = ?", (email,)).fetchone()
+        return row["teacher_id"] if row else None
+
+    lms.add_course(title="Python for Beginners", title_ar="بايثون للمبتدئين",
+                   code="LMS-PY", category="Programming", teacher_id=tid("o.haddad@academy.edu"),
+                   description="Hands-on introduction to Python programming.",
+                   description_ar="مقدمة عملية للبرمجة بلغة بايثون.", status="published")
+    lms.add_course(title="Academic Writing Skills", title_ar="مهارات الكتابة الأكاديمية",
+                   code="LMS-WR", category="Skills", teacher_id=tid("l.nasser@academy.edu"),
+                   description_ar="كتابة الأبحاث والتقارير بأسلوب أكاديمي.", status="published")
+    lms.add_course(title="Intro to Data Analysis", title_ar="مقدمة في تحليل البيانات",
+                   code="LMS-DA", category="Data", teacher_id=tid("s.alamri@academy.edu"),
+                   description_ar="أساسيات تحليل البيانات والجداول.", status="draft")
+    lms.add_course(title="Time Management", title_ar="إدارة الوقت",
+                   code="LMS-TM", category="Skills", status="archived")
+    return 4
+
+
 def seed(conn):
     conn.executemany(
         "INSERT INTO departments (code, name, name_ar) VALUES (?, ?, ?)",
@@ -89,22 +119,8 @@ def seed(conn):
     ]:
         curriculum.add_course(cs_m.major_id, cid, level=level, kind=kind)
 
-    # Learning-management (LMS) courses — training/learning offerings managed
-    # from the admin console. Mixed statuses so the list shows how each renders
-    # (published / draft / archived).
-    lms = LMSService(conn)
-    lms.add_course(title="Python for Beginners", title_ar="بايثون للمبتدئين",
-                   code="LMS-PY", category="Programming", teacher_id=t_m1.teacher_id,
-                   description="Hands-on introduction to Python programming.",
-                   description_ar="مقدمة عملية للبرمجة بلغة بايثون.", status="published")
-    lms.add_course(title="Academic Writing Skills", title_ar="مهارات الكتابة الأكاديمية",
-                   code="LMS-WR", category="Skills", teacher_id=t_f2.teacher_id,
-                   description_ar="كتابة الأبحاث والتقارير بأسلوب أكاديمي.", status="published")
-    lms.add_course(title="Intro to Data Analysis", title_ar="مقدمة في تحليل البيانات",
-                   code="LMS-DA", category="Data", teacher_id=t_f1.teacher_id,
-                   description_ar="أساسيات تحليل البيانات والجداول.", status="draft")
-    lms.add_course(title="Time Management", title_ar="إدارة الوقت",
-                   code="LMS-TM", category="Skills", status="archived")
+    # Learning-management (LMS) demo courses (see _seed_lms_courses).
+    _seed_lms_courses(conn)
 
     sections = SectionService(conn)
     # Gender-segregated sections of the same course.
@@ -230,7 +246,14 @@ def main():
     conn = get_connection()
     initialize_database(conn)
     if conn.execute("SELECT COUNT(*) AS c FROM students").fetchone()["c"] > 0:
-        print(f"Database already has data. Delete {DB_PATH} first for a fresh demo load.")
+        # Already seeded: don't wipe, but top up newer demo data that older
+        # seed runs lacked (e.g. the LMS courses) so it appears without a reset.
+        added = _seed_lms_courses(conn)
+        if added:
+            print(f"Existing database topped up with {added} demo LMS courses "
+                  "(learning system enabled).")
+        else:
+            print(f"Database already has data. Delete {DB_PATH} first for a fresh demo load.")
         return
     seed(conn)
 
