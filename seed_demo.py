@@ -20,6 +20,7 @@ from attendance_service import AttendanceService
 from exam_service import ExamService
 from fee_service import FeeService
 from request_service import RequestService
+from lms_service import LMSService
 
 
 def seed(conn):
@@ -87,6 +88,23 @@ def seed(conn):
         (bus101.course_id, 2, "elective"),
     ]:
         curriculum.add_course(cs_m.major_id, cid, level=level, kind=kind)
+
+    # Learning-management (LMS) courses — training/learning offerings managed
+    # from the admin console. Mixed statuses so the list shows how each renders
+    # (published / draft / archived).
+    lms = LMSService(conn)
+    lms.add_course(title="Python for Beginners", title_ar="بايثون للمبتدئين",
+                   code="LMS-PY", category="Programming", teacher_id=t_m1.teacher_id,
+                   description="Hands-on introduction to Python programming.",
+                   description_ar="مقدمة عملية للبرمجة بلغة بايثون.", status="published")
+    lms.add_course(title="Academic Writing Skills", title_ar="مهارات الكتابة الأكاديمية",
+                   code="LMS-WR", category="Skills", teacher_id=t_f2.teacher_id,
+                   description_ar="كتابة الأبحاث والتقارير بأسلوب أكاديمي.", status="published")
+    lms.add_course(title="Intro to Data Analysis", title_ar="مقدمة في تحليل البيانات",
+                   code="LMS-DA", category="Data", teacher_id=t_f1.teacher_id,
+                   description_ar="أساسيات تحليل البيانات والجداول.", status="draft")
+    lms.add_course(title="Time Management", title_ar="إدارة الوقت",
+                   code="LMS-TM", category="Skills", status="archived")
 
     sections = SectionService(conn)
     # Gender-segregated sections of the same course.
@@ -200,6 +218,7 @@ def seed(conn):
 
     print(f"Demo data loaded into {DB_PATH}")
     print("Students: 6 (male+female)  Teachers: 4  Courses: 4  Majors: 3  Terms: 3")
+    print("LMS courses: 4 (2 published, 1 draft, 1 archived) — Academics → Learning courses")
     print()
     print("Demo logins (local exploration only):")
     print("  admin / admin-demo-123          registrar / registrar-demo-123")

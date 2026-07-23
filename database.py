@@ -362,6 +362,7 @@ DEFAULT_SETTINGS = {
     # -- outgoing email (admissions notifications) ------------------------
     "email_enabled": "0",            # 0 = log only, 1 = actually send via SMTP
     "auto_email_on_approval": "1",   # send the acceptance email automatically on approve
+    "lms_enabled": "1",              # learning-management module (admin-managed courses)
     "smtp_host": "",
     "smtp_port": "587",
     "smtp_user": "",
