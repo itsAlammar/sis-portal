@@ -24,56 +24,78 @@ from lms_service import LMSService
 
 
 def _seed_lms_courses(conn):
-    """Add the demo LMS courses (training/learning offerings shown in the admin
-    console) with mixed statuses so the list shows how each renders. Idempotent:
-    a no-op when courses already exist, so it is safe to call as a top-up on an
-    already-seeded database. Returns the number of courses added."""
+    """Seed demo training courses with full content so every admin control has
+    something to show. Idempotent and additive: creates courses only when
+    missing (by code), and tops up lessons / sessions / enrollments on existing
+    demo courses — so it enriches an already-seeded database without a reset.
+    Returns the total number of training courses present."""
     from database import set_setting
+    from trainee_service import TraineeService
+    from lms_enrollment_service import LMSEnrollmentService
     lms = LMSService(conn)
-    if lms.count() > 0:
-        return 0
     set_setting(conn, "lms_enabled", "1")
 
     def tid(email):
         row = conn.execute("SELECT teacher_id FROM teachers WHERE email = ?", (email,)).fetchone()
         return row["teacher_id"] if row else None
 
-    py = lms.add_course(title="Python for Beginners", title_ar="بايثون للمبتدئين",
-                        code="LMS-PY", category="Programming", teacher_id=tid("o.haddad@academy.edu"),
-                        description="Hands-on introduction to Python programming.",
-                        description_ar="مقدمة عملية للبرمجة بلغة بايثون.", status="published",
-                        price=300, delivery_mode="hybrid")
-    lms.add_course(title="Academic Writing Skills", title_ar="مهارات الكتابة الأكاديمية",
-                   code="LMS-WR", category="Skills", teacher_id=tid("l.nasser@academy.edu"),
-                   description_ar="كتابة الأبحاث والتقارير بأسلوب أكاديمي.", status="published",
-                   price=200, delivery_mode="content")
-    lms.add_course(title="Intro to Data Analysis", title_ar="مقدمة في تحليل البيانات",
-                   code="LMS-DA", category="Data", teacher_id=tid("s.alamri@academy.edu"),
-                   description_ar="أساسيات تحليل البيانات والجداول.", status="draft")
-    lms.add_course(title="Time Management", title_ar="إدارة الوقت",
-                   code="LMS-TM", category="Skills", status="archived")
+    def ensure_course(code, **kw):
+        row = conn.execute("SELECT lms_course_id FROM lms_courses WHERE code = ?", (code,)).fetchone()
+        return lms.get_course(row["lms_course_id"]) if row else lms.add_course(code=code, **kw)
 
-    # Content for the flagship paid course.
-    lms.add_lesson(py.lms_course_id, title="Getting started", title_ar="البداية",
-                   body="Install Python and set up your editor.")
-    lms.add_lesson(py.lms_course_id, title="Variables & types", title_ar="المتغيرات والأنواع",
-                   body="Numbers, strings, and lists.")
-    # Scheduled sessions for the hybrid paid course.
-    lms.add_session(py.lms_course_id, session_date="2026-03-01", title="Kickoff",
-                    start_time="10:00", end_time="12:00", room="Lab A-1")
-    lms.add_session(py.lms_course_id, session_date="2026-03-08", title="Workshop",
-                    start_time="10:00", end_time="12:00", link="https://meet.example.com/py")
+    def ensure_lessons(course, lessons):
+        if not lms.list_lessons(course.lms_course_id):
+            for title, title_ar, body in lessons:
+                lms.add_lesson(course.lms_course_id, title=title, title_ar=title_ar, body=body)
 
-    # A demo external trainee already enrolled (and paid) in the paid course,
-    # plus one pending payment awaiting confirmation on another course.
-    from trainee_service import TraineeService
-    from lms_enrollment_service import LMSEnrollmentService
-    trainee = TraineeService(conn).register(
-        full_name="Nasser Trainee", email="trainee@example.com", password="trainee-demo-123")
-    enr = LMSEnrollmentService(conn)
-    paid = enr.enroll(trainee.trainee_id, py.lms_course_id)
-    enr.mark_paid(paid.lms_enrollment_id)
-    return 4
+    def ensure_sessions(course, sessions):
+        if not lms.list_sessions(course.lms_course_id):
+            for kw in sessions:
+                lms.add_session(course.lms_course_id, **kw)
+
+    py = ensure_course("LMS-PY", title="Python for Beginners", title_ar="بايثون للمبتدئين",
+                       category="Programming", teacher_id=tid("o.haddad@academy.edu"),
+                       description="Hands-on introduction to Python programming.",
+                       description_ar="مقدمة عملية للبرمجة بلغة بايثون.", status="published",
+                       price=300, delivery_mode="hybrid")
+    wr = ensure_course("LMS-WR", title="Academic Writing Skills", title_ar="مهارات الكتابة الأكاديمية",
+                       category="Skills", teacher_id=tid("l.nasser@academy.edu"),
+                       description_ar="كتابة الأبحاث والتقارير بأسلوب أكاديمي.", status="published",
+                       price=200, delivery_mode="content")
+    ensure_course("LMS-DA", title="Intro to Data Analysis", title_ar="مقدمة في تحليل البيانات",
+                  category="Data", teacher_id=tid("s.alamri@academy.edu"),
+                  description_ar="أساسيات تحليل البيانات والجداول.", status="draft")
+    ensure_course("LMS-TM", title="Time Management", title_ar="إدارة الوقت",
+                  category="Skills", status="archived")
+
+    ensure_lessons(py, [
+        ("Getting started", "البداية", "Install Python and set up your editor."),
+        ("Variables & types", "المتغيرات والأنواع", "Numbers, strings, and lists."),
+        ("Control flow", "التحكم في التدفق", "Conditionals and loops with examples."),
+    ])
+    ensure_sessions(py, [
+        dict(session_date="2026-03-01", title="Kickoff", start_time="10:00", end_time="12:00", room="Lab A-1"),
+        dict(session_date="2026-03-08", title="Workshop", start_time="10:00", end_time="12:00",
+             link="https://meet.example.com/py"),
+    ])
+    ensure_lessons(wr, [
+        ("Structuring an essay", "بناء المقال", "Thesis, body paragraphs, conclusion."),
+        ("Citations & references", "التوثيق والمراجع", "APA basics and in-text citations."),
+    ])
+
+    # Trainees + enrollments (only if none yet): one paid+attended, one pending.
+    tr, enr = TraineeService(conn), LMSEnrollmentService(conn)
+    if tr.count() == 0:
+        t1 = tr.register(full_name="Nasser Trainee", email="trainee@example.com",
+                         password="trainee-demo-123")
+        t2 = tr.register(full_name="Sara Trainee", email="sara.trainee@example.com",
+                         password="trainee-demo-123")
+        paid = enr.enroll(t1.trainee_id, py.lms_course_id)
+        enr.mark_paid(paid.lms_enrollment_id)
+        lms.record_attendance(lms.list_sessions(py.lms_course_id)[0].lms_session_id,
+                              {t1.trainee_id: "present"})
+        enr.enroll(t2.trainee_id, wr.lms_course_id)   # pending payment -> shows in /lms/payments
+    return lms.count()
 
 
 def seed(conn):
@@ -257,7 +279,8 @@ def seed(conn):
 
     print(f"Demo data loaded into {DB_PATH}")
     print("Students: 6 (male+female)  Teachers: 4  Courses: 4  Majors: 3  Terms: 3")
-    print("LMS courses: 4 (2 published paid, 1 draft, 1 archived) — Academics → Learning courses")
+    print("Training courses: 4 (2 published paid with lessons+sessions, 1 draft, 1 archived)")
+    print("  · 2 trainees: 1 paid+attended, 1 pending payment (see /lms/payments)")
     print("Training academy: /academy — trainee login: trainee@example.com / trainee-demo-123")
     print()
     print("Demo logins (local exploration only):")
@@ -270,14 +293,12 @@ def main():
     conn = get_connection()
     initialize_database(conn)
     if conn.execute("SELECT COUNT(*) AS c FROM students").fetchone()["c"] > 0:
-        # Already seeded: don't wipe, but top up newer demo data that older
-        # seed runs lacked (e.g. the LMS courses) so it appears without a reset.
-        added = _seed_lms_courses(conn)
-        if added:
-            print(f"Existing database topped up with {added} demo LMS courses "
-                  "(learning system enabled).")
-        else:
-            print(f"Database already has data. Delete {DB_PATH} first for a fresh demo load.")
+        # Already seeded: don't wipe, but top up the training courses with their
+        # lessons / sessions / enrollments so the admin controls have demo data.
+        total = _seed_lms_courses(conn)
+        print(f"Existing database enriched: {total} training courses with content, "
+              "sessions, and enrollments (learning system enabled).")
+        print("Trainee login: trainee@example.com / trainee-demo-123")
         return
     seed(conn)
 

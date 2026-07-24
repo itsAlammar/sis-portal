@@ -33,7 +33,8 @@
       </div>
       <label>{{ t('lms.instructor') }}</label>
       <select name="teacher_id"><option value="">—</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}">{{ tt.name_ar or tt.first_name }}</option>{% endfor %}</select>
-      <label>{{ t('lms.description') }}</label><textarea name="description" rows="2"></textarea>
+      <label>{{ t('lms.description') }} (EN)</label><textarea name="description" rows="2"></textarea>
+      <label>{{ t('lms.description') }} (AR)</label><textarea name="description_ar" dir="rtl" rows="2"></textarea>
       <div class="grid-2">
         <div><label>{{ t('academy.price') }} (SAR)</label><input type="number" name="price" min="0" step="1" value="0"></div>
         <div><label>{{ t('academy.delivery_mode') }}</label>
