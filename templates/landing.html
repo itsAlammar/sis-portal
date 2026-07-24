@@ -29,6 +29,14 @@
         <p>{{ t('landing.apply_desc') }}</p>
         <span class="go">{{ t('action.register') }} →</span>
       </a>
+      {% if lms_enabled %}
+      <a class="landing-card" href="{{ url_for('academy_catalog') }}">
+        <span class="stamp stamp--progress">{{ t('academy.title') }}</span>
+        <h2>{{ t('academy.landing_title') }}</h2>
+        <p>{{ t('academy.landing_desc') }}</p>
+        <span class="go">{{ t('academy.catalog') }} →</span>
+      </a>
+      {% endif %}
     </div>
   </div>
 </body>

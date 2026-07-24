@@ -14,9 +14,61 @@
     <label>{{ t('lms.instructor') }}</label>
     <select name="teacher_id"><option value="">—</option>{% for tt in teachers %}<option value="{{ tt.teacher_id }}" {{ 'selected' if course.teacher_id == tt.teacher_id }}>{{ tt.name_ar or tt.first_name }}</option>{% endfor %}</select>
     <label>{{ t('lms.description') }}</label><textarea name="description" rows="3">{{ course.description or '' }}</textarea>
+    <div class="grid-2">
+      <div><label>{{ t('academy.price') }} (SAR)</label><input type="number" name="price" min="0" step="1" value="{{ '%.0f'|format(course.price) }}"></div>
+      <div><label>{{ t('academy.delivery_mode') }}</label>
+        <select name="delivery_mode">{% for m in ['content', 'session', 'hybrid'] %}<option value="{{ m }}" {{ 'selected' if course.delivery_mode == m }}>{{ t('academy.mode_' + m) }}</option>{% endfor %}</select>
+      </div>
+    </div>
     <label>{{ t('common.status') }}</label>
     <select name="status">{% for s in ['draft', 'published', 'archived'] %}<option value="{{ s }}" {{ 'selected' if course.status == s }}>{{ ts(s) }}</option>{% endfor %}</select>
+    <label>{{ t('academy.completion_rules') }}</label>
+    <div>
+      <label style="display:inline;"><input type="checkbox" name="require_content" {{ 'checked' if course.require_content }}> {{ t('academy.require_content') }}</label><br>
+      <label style="display:inline;"><input type="checkbox" name="require_quiz_pass" {{ 'checked' if course.require_quiz_pass }}> {{ t('academy.require_quiz') }}</label>
+    </div>
+    <label>{{ t('academy.require_attendance') }} (%)</label><input type="number" name="require_attendance_pct" min="0" max="100" value="{{ course.require_attendance_pct }}">
     <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button> <a class="btn btn--ghost" href="{{ url_for('lms_list') }}">{{ t('action.cancel') }}</a></div>
   </form>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>{{ t('academy.content') }}</h2>
+    {% if lessons %}
+    <table>
+      <thead><tr><th>#</th><th>{{ t('common.name') }}</th><th></th></tr></thead>
+      <tbody>
+      {% for l in lessons %}
+        <tr><td>{{ l.sort_order }}</td><td>{{ l.name(locale) }}</td>
+          <td><form method="post" action="{{ url_for('lms_lesson_delete', lms_lesson_id=l.lms_lesson_id) }}" style="margin:0;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">{{ t('action.delete') }}</button></form></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty-state">{{ t('academy.no_content') }}</div>{% endif %}
+    <h3>{{ t('action.add') }}</h3>
+    <form method="post" action="{{ url_for('lms_lesson_add', lms_course_id=course.lms_course_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>{{ t('lms.title') }} (EN)</label><input name="title" required>
+      <label>{{ t('lms.title') }} (AR)</label><input name="title_ar" dir="rtl">
+      <label>{{ t('academy.lesson_body') }}</label><textarea name="body" rows="2"></textarea>
+      <label>{{ t('academy.lesson_link') }}</label><input name="link" type="url">
+      <div class="actions-row"><button class="btn--primary btn--small">{{ t('action.add') }}</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <h2>{{ t('academy.enrollments') }}</h2>
+    {% if enrollments %}
+    <table>
+      <thead><tr><th>{{ t('academy.trainee') }}</th><th>{{ t('academy.payment') }}</th><th>{{ t('common.status') }}</th></tr></thead>
+      <tbody>
+      {% for e in enrollments %}
+        <tr><td>#{{ e.trainee_id }}</td><td>{{ t('academy.pay_' + e.payment_status) }}</td><td>{{ t('academy.completed_badge') if e.is_completed else t('academy.in_progress') }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+  </div>
 </div>
 {% endblock %}

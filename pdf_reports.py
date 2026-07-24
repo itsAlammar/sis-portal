@@ -239,3 +239,68 @@ def generate_receipt_pdf(conn: sqlite3.Connection, payment_id: int) -> io.BytesI
     doc.build(story)
     buf.seek(0)
     return buf
+
+
+def generate_certificate_pdf(conn: sqlite3.Connection, lms_enrollment_id: int) -> io.BytesIO:
+    """Certificate of completion for a training-course enrollment."""
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER
+        from reportlab.lib.pagesizes import LETTER, landscape
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import inch
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+    except ImportError as e:
+        raise RuntimeError(
+            "PDF export needs the 'reportlab' package. Install it with: pip install reportlab"
+        ) from e
+
+    from lms_enrollment_service import LMSEnrollmentService
+    from lms_service import LMSService
+    from trainee_service import TraineeService
+
+    INK = colors.HexColor("#1E2A38")
+    OXBLOOD = colors.HexColor("#8B3A2E")
+
+    enr = LMSEnrollmentService(conn).get_enrollment(lms_enrollment_id)
+    if not enr.is_completed:
+        raise ValueError("Certificate is only available for completed courses.")
+    course = LMSService(conn).get_course(enr.lms_course_id)
+    trainee = TraineeService(conn).get_trainee(enr.trainee_id)
+    institution = get_setting(conn, "institution_name_en", "") or "SIS Portal"
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=landscape(LETTER),
+        topMargin=1.1 * inch, bottomMargin=1.1 * inch,
+        leftMargin=1.0 * inch, rightMargin=1.0 * inch,
+    )
+    styles = getSampleStyleSheet()
+    eyebrow = ParagraphStyle("Eyebrow", parent=styles["Normal"], textColor=OXBLOOD,
+                             fontName="Helvetica-Bold", fontSize=12, alignment=TA_CENTER, spaceAfter=6)
+    big = ParagraphStyle("Big", parent=styles["Title"], textColor=INK, fontSize=30,
+                         alignment=TA_CENTER, spaceAfter=18)
+    name = ParagraphStyle("Name", parent=styles["Title"], textColor=OXBLOOD, fontSize=24,
+                          alignment=TA_CENTER, spaceAfter=8)
+    body = ParagraphStyle("Body", parent=styles["Normal"], fontSize=13,
+                          alignment=TA_CENTER, spaceAfter=6)
+    small = ParagraphStyle("Small", parent=styles["Normal"], fontSize=10,
+                           textColor=colors.HexColor("#666666"), alignment=TA_CENTER)
+
+    completed_on = (enr.completed_at or date.today().isoformat())[:10]
+    story = [
+        Paragraph(institution.upper(), eyebrow),
+        Paragraph("Certificate of Completion", big),
+        Paragraph("This certifies that", body),
+        Paragraph(trainee.full_name, name),
+        Paragraph("has successfully completed the training course", body),
+        Paragraph(f"<b>{course.title}</b>", body),
+        Spacer(1, 18),
+        Paragraph(f"Completed on {completed_on}", small),
+        Paragraph(f"Certificate ID: CERT-{enr.lms_enrollment_id:06d}", small),
+        Spacer(1, 10),
+        Paragraph(f"{institution} -- system-generated, valid without signature.", small),
+    ]
+    doc.build(story)
+    buf.seek(0)
+    return buf

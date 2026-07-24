@@ -44,6 +44,8 @@ from mail_service import MailService
 from attendance_service import AttendanceService
 from exam_service import ExamService
 from lms_service import LMSService
+from trainee_service import TraineeService
+from lms_enrollment_service import LMSEnrollmentService
 import pdf_reports
 
 app = Flask(__name__)
@@ -109,6 +111,7 @@ def inject_globals():
         "current_term": TermService(get_db()).get_current_term(),
         "staff_user": current_staff(),
         "portal_student": _portal_student(),
+        "trainee_user": current_trainee(),
         "pending_admissions": _safe_count(lambda c: AdmissionsService(c).count_pending()),
         "pending_requests": _safe_count(lambda c: RequestService(c).count_pending()),
         "csrf_token": _csrf_token,
@@ -225,6 +228,25 @@ def portal_login_required(view):
     return wrapped
 
 
+def current_trainee():
+    tid = session.get("trainee_id")
+    if not tid:
+        return None
+    try:
+        return TraineeService(get_db()).get_trainee(tid)
+    except SISError:
+        return None
+
+
+def trainee_login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("trainee_id"):
+            return redirect(url_for("academy_login"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
 def _actor():
     user = current_staff()
     if user:
@@ -235,6 +257,9 @@ def _actor():
             return f"student:{StudentService(get_db()).get_student(sid).student_number}"
         except SISError:
             pass
+    tid = session.get("trainee_id")
+    if tid:
+        return f"trainee:{tid}"
     return "anonymous"
 
 
@@ -1622,6 +1647,11 @@ def lms_add():
             description_ar=f.get("description_ar", ""), category=f.get("category", ""),
             teacher_id=int(f["teacher_id"]) if f.get("teacher_id") else None,
             status=f.get("status", "draft"),
+            price=float(f.get("price") or 0),
+            delivery_mode=f.get("delivery_mode", "content"),
+            require_content=1 if f.get("require_content") else 0,
+            require_attendance_pct=int(f.get("require_attendance_pct") or 0),
+            require_quiz_pass=1 if f.get("require_quiz_pass") else 0,
         )
         audit("lms_course.create", "lms_course", c.lms_course_id, c.title)
         flash(i18n.t("flash.saved", locale()), "success")
@@ -1649,13 +1679,20 @@ def lms_edit(lms_course_id):
                 category=(f.get("category", "").strip() or None),
                 teacher_id=int(f["teacher_id"]) if f.get("teacher_id") else None,
                 status=f.get("status"),
+                price=float(f.get("price") or 0),
+                delivery_mode=f.get("delivery_mode", "content"),
+                require_content=1 if f.get("require_content") else 0,
+                require_attendance_pct=int(f.get("require_attendance_pct") or 0),
+                require_quiz_pass=1 if f.get("require_quiz_pass") else 0,
             )
             audit("lms_course.update", "lms_course", lms_course_id, course.title)
             flash(i18n.t("flash.saved", locale()), "success")
-            return redirect(url_for("lms_list"))
+            return redirect(url_for("lms_edit", lms_course_id=lms_course_id))
         except SISError as e:
             flash(str(e), "error")
-    return render_template("lms_form.html", course=course, teachers=_lms_teachers(conn))
+    return render_template("lms_form.html", course=course, teachers=_lms_teachers(conn),
+                           lessons=lms.list_lessons(lms_course_id),
+                           enrollments=LMSEnrollmentService(conn).list_for_course(lms_course_id))
 
 
 @app.route("/lms/<int:lms_course_id>/status", methods=["POST"])
@@ -1668,6 +1705,185 @@ def lms_set_status(lms_course_id):
     except SISError as e:
         flash(str(e), "error")
     return redirect(url_for("lms_list"))
+
+
+@app.route("/lms/<int:lms_course_id>/lessons/add", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_lesson_add(lms_course_id):
+    f = request.form
+    try:
+        LMSService(get_db()).add_lesson(
+            lms_course_id, title=f.get("title", ""), title_ar=f.get("title_ar", ""),
+            body=f.get("body", ""), link=f.get("link", ""),
+        )
+        audit("lms_lesson.create", "lms_course", lms_course_id, f.get("title", ""))
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("lms_edit", lms_course_id=lms_course_id))
+
+
+@app.route("/lms/lessons/<int:lms_lesson_id>/delete", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_lesson_delete(lms_lesson_id):
+    conn = get_db()
+    lms = LMSService(conn)
+    lesson = lms.get_lesson(lms_lesson_id)
+    lms.delete_lesson(lms_lesson_id)
+    audit("lms_lesson.delete", "lms_course", lesson.lms_course_id, lesson.title)
+    flash(i18n.t("flash.deleted", locale()), "success")
+    return redirect(url_for("lms_edit", lms_course_id=lesson.lms_course_id))
+
+
+@app.route("/lms/payments")
+@staff_required("admin", "registrar")
+def lms_payments():
+    conn = get_db()
+    pending = LMSEnrollmentService(conn).list_pending_payments()
+    lms = LMSService(conn)
+    trainees = TraineeService(conn)
+    rows = [{"enr": e, "course": lms.get_course(e.lms_course_id),
+             "trainee": trainees.get_trainee(e.trainee_id)} for e in pending]
+    return render_template("lms_payments.html", rows=rows)
+
+
+@app.route("/lms/enrollments/<int:lms_enrollment_id>/approve", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_payment_approve(lms_enrollment_id):
+    try:
+        LMSEnrollmentService(get_db()).mark_paid(lms_enrollment_id)
+        audit("lms_payment.approve", "lms_enrollment", lms_enrollment_id)
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("lms_payments"))
+
+
+# ======================================================================
+# Academy: external trainee portal (training courses)
+# ======================================================================
+@app.route("/academy")
+def academy_catalog():
+    conn = get_db()
+    courses = LMSService(conn).list_courses(status="published")
+    enrolled_ids = set()
+    if session.get("trainee_id"):
+        enrolled_ids = {e.lms_course_id for e in
+                        LMSEnrollmentService(conn).list_for_trainee(session["trainee_id"])}
+    return render_template("academy_catalog.html", courses=courses, enrolled_ids=enrolled_ids)
+
+
+@app.route("/academy/register", methods=["GET", "POST"])
+def academy_register():
+    if session.get("trainee_id"):
+        return redirect(url_for("academy_my"))
+    if request.method == "POST":
+        f = request.form
+        try:
+            t = TraineeService(get_db()).register(
+                full_name=f.get("full_name", ""), email=f.get("email", ""),
+                password=f.get("password", ""), phone=f.get("phone", ""),
+            )
+            session["trainee_id"] = t.trainee_id
+            audit("academy.register", "trainee", t.trainee_id)
+            return redirect(url_for("academy_my"))
+        except SISError as e:
+            flash(str(e), "error")
+    return render_template("academy_register.html")
+
+
+@app.route("/academy/login", methods=["GET", "POST"])
+def academy_login():
+    if request.method == "POST":
+        t = TraineeService(get_db()).authenticate(
+            request.form.get("email", ""), request.form.get("password", ""))
+        if t:
+            session.pop("trainee_id", None)
+            session["trainee_id"] = t.trainee_id
+            audit("academy.login", "trainee", t.trainee_id)
+            return redirect(url_for("academy_my"))
+        flash(i18n.t("auth.invalid", locale()), "error")
+    return render_template("academy_login.html")
+
+
+@app.route("/academy/logout", methods=["POST"])
+def academy_logout():
+    if session.get("trainee_id"):
+        audit("academy.logout", "trainee", session["trainee_id"])
+    session.pop("trainee_id", None)
+    return redirect(url_for("academy_catalog"))
+
+
+@app.route("/academy/my")
+@trainee_login_required
+def academy_my():
+    conn = get_db()
+    tid = session["trainee_id"]
+    lms = LMSService(conn)
+    enrollments = [{"enr": e, "course": lms.get_course(e.lms_course_id)}
+                   for e in LMSEnrollmentService(conn).list_for_trainee(tid)]
+    return render_template("academy_my.html", enrollments=enrollments)
+
+
+@app.route("/academy/courses/<int:lms_course_id>")
+def academy_course(lms_course_id):
+    conn = get_db()
+    course = LMSService(conn).get_course(lms_course_id)
+    if course.status != "published":
+        abort(404)
+    enr = None
+    if session.get("trainee_id"):
+        enr = LMSEnrollmentService(conn).get_for(session["trainee_id"], lms_course_id)
+    lessons = LMSService(conn).list_lessons(lms_course_id) if (enr and enr.is_paid) else []
+    return render_template("academy_course.html", course=course, enrollment=enr, lessons=lessons)
+
+
+@app.route("/academy/courses/<int:lms_course_id>/enroll", methods=["POST"])
+@trainee_login_required
+def academy_enroll(lms_course_id):
+    conn = get_db()
+    provider = get_setting(conn, "payment_provider", "manual")
+    try:
+        e = LMSEnrollmentService(conn).enroll(session["trainee_id"], lms_course_id,
+                                              provider_name=provider)
+        audit("academy.enroll", "lms_enrollment", e.lms_enrollment_id)
+        flash(i18n.t("academy.enrolled", locale()) if e.is_paid
+              else i18n.t("academy.enroll_pending", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("academy_course", lms_course_id=lms_course_id))
+
+
+@app.route("/academy/courses/<int:lms_course_id>/complete", methods=["POST"])
+@trainee_login_required
+def academy_complete(lms_course_id):
+    conn = get_db()
+    enr = LMSEnrollmentService(conn).get_for(session["trainee_id"], lms_course_id)
+    if not enr:
+        abort(404)
+    try:
+        LMSEnrollmentService(conn).complete(enr.lms_enrollment_id)
+        audit("academy.complete", "lms_enrollment", enr.lms_enrollment_id)
+        flash(i18n.t("academy.completed", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("academy_course", lms_course_id=lms_course_id))
+
+
+@app.route("/academy/courses/<int:lms_course_id>/certificate")
+@trainee_login_required
+def academy_certificate(lms_course_id):
+    conn = get_db()
+    enr = LMSEnrollmentService(conn).get_for(session["trainee_id"], lms_course_id)
+    if not enr or not enr.is_completed:
+        abort(404)
+    try:
+        pdf = pdf_reports.generate_certificate_pdf(conn, enr.lms_enrollment_id)
+    except (RuntimeError, ValueError) as e:
+        flash(str(e), "error")
+        return redirect(url_for("academy_course", lms_course_id=lms_course_id))
+    return send_file(pdf, mimetype="application/pdf", as_attachment=True,
+                     download_name=f"certificate-{enr.lms_enrollment_id}.pdf")
 
 
 # ======================================================================

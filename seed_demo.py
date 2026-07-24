@@ -38,18 +38,36 @@ def _seed_lms_courses(conn):
         row = conn.execute("SELECT teacher_id FROM teachers WHERE email = ?", (email,)).fetchone()
         return row["teacher_id"] if row else None
 
-    lms.add_course(title="Python for Beginners", title_ar="بايثون للمبتدئين",
-                   code="LMS-PY", category="Programming", teacher_id=tid("o.haddad@academy.edu"),
-                   description="Hands-on introduction to Python programming.",
-                   description_ar="مقدمة عملية للبرمجة بلغة بايثون.", status="published")
+    py = lms.add_course(title="Python for Beginners", title_ar="بايثون للمبتدئين",
+                        code="LMS-PY", category="Programming", teacher_id=tid("o.haddad@academy.edu"),
+                        description="Hands-on introduction to Python programming.",
+                        description_ar="مقدمة عملية للبرمجة بلغة بايثون.", status="published",
+                        price=300, delivery_mode="hybrid")
     lms.add_course(title="Academic Writing Skills", title_ar="مهارات الكتابة الأكاديمية",
                    code="LMS-WR", category="Skills", teacher_id=tid("l.nasser@academy.edu"),
-                   description_ar="كتابة الأبحاث والتقارير بأسلوب أكاديمي.", status="published")
+                   description_ar="كتابة الأبحاث والتقارير بأسلوب أكاديمي.", status="published",
+                   price=200, delivery_mode="content")
     lms.add_course(title="Intro to Data Analysis", title_ar="مقدمة في تحليل البيانات",
                    code="LMS-DA", category="Data", teacher_id=tid("s.alamri@academy.edu"),
                    description_ar="أساسيات تحليل البيانات والجداول.", status="draft")
     lms.add_course(title="Time Management", title_ar="إدارة الوقت",
                    code="LMS-TM", category="Skills", status="archived")
+
+    # Content for the flagship paid course.
+    lms.add_lesson(py.lms_course_id, title="Getting started", title_ar="البداية",
+                   body="Install Python and set up your editor.")
+    lms.add_lesson(py.lms_course_id, title="Variables & types", title_ar="المتغيرات والأنواع",
+                   body="Numbers, strings, and lists.")
+
+    # A demo external trainee already enrolled (and paid) in the paid course,
+    # plus one pending payment awaiting confirmation on another course.
+    from trainee_service import TraineeService
+    from lms_enrollment_service import LMSEnrollmentService
+    trainee = TraineeService(conn).register(
+        full_name="Nasser Trainee", email="trainee@example.com", password="trainee-demo-123")
+    enr = LMSEnrollmentService(conn)
+    paid = enr.enroll(trainee.trainee_id, py.lms_course_id)
+    enr.mark_paid(paid.lms_enrollment_id)
     return 4
 
 
@@ -234,7 +252,8 @@ def seed(conn):
 
     print(f"Demo data loaded into {DB_PATH}")
     print("Students: 6 (male+female)  Teachers: 4  Courses: 4  Majors: 3  Terms: 3")
-    print("LMS courses: 4 (2 published, 1 draft, 1 archived) — Academics → Learning courses")
+    print("LMS courses: 4 (2 published paid, 1 draft, 1 archived) — Academics → Learning courses")
+    print("Training academy: /academy — trainee login: trainee@example.com / trainee-demo-123")
     print()
     print("Demo logins (local exploration only):")
     print("  admin / admin-demo-123          registrar / registrar-demo-123")

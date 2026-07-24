@@ -693,3 +693,56 @@ def test_lms_course_lifecycle(conn):
         svc.set_status(c.lms_course_id, "bogus")
     with pytest.raises(DuplicateError):
         svc.add_course(title="Other", code="lms1")
+
+
+# -- Training track: trainees + paid enrollment + completion --------------
+
+def test_training_track_flow(conn):
+    from lms_service import LMSService
+    from trainee_service import TraineeService
+    from lms_enrollment_service import LMSEnrollmentService
+    from exceptions import DuplicateError
+
+    lms = LMSService(conn)
+    course = lms.add_course(title="Bootcamp", price=300, delivery_mode="hybrid",
+                            status="published")
+    lms.add_lesson(course.lms_course_id, title="Intro", body="hello")
+    assert len(lms.list_lessons(course.lms_course_id)) == 1
+
+    tr = TraineeService(conn)
+    t = tr.register(full_name="Sara", email="Sara@X.com", password="secret12")
+    assert tr.authenticate("sara@x.com", "secret12").trainee_id == t.trainee_id
+    assert tr.authenticate("sara@x.com", "wrong") is None
+    with pytest.raises(DuplicateError):
+        tr.register(full_name="Dup", email="sara@x.com", password="secret12")
+
+    enr = LMSEnrollmentService(conn)
+    e = enr.enroll(t.trainee_id, course.lms_course_id)
+    assert e.payment_status == "pending" and e.amount == 300
+    with pytest.raises(DuplicateError):
+        enr.enroll(t.trainee_id, course.lms_course_id)
+    # cannot complete before payment is confirmed
+    with pytest.raises(ValidationError):
+        enr.complete(e.lms_enrollment_id)
+    enr.mark_paid(e.lms_enrollment_id)
+    assert enr.complete(e.lms_enrollment_id).is_completed
+
+
+def test_free_training_course_opens_immediately(conn):
+    from lms_service import LMSService
+    from trainee_service import TraineeService
+    from lms_enrollment_service import LMSEnrollmentService
+    course = LMSService(conn).add_course(title="Free", price=0, status="published")
+    t = TraineeService(conn).register(full_name="A", email="a@b.com", password="secret12")
+    e = LMSEnrollmentService(conn).enroll(t.trainee_id, course.lms_course_id)
+    assert e.payment_status == "paid"
+
+
+def test_cannot_enroll_in_unpublished_course(conn):
+    from lms_service import LMSService
+    from trainee_service import TraineeService
+    from lms_enrollment_service import LMSEnrollmentService
+    course = LMSService(conn).add_course(title="Draft", price=100, status="draft")
+    t = TraineeService(conn).register(full_name="A", email="a@b.com", password="secret12")
+    with pytest.raises(ValidationError):
+        LMSEnrollmentService(conn).enroll(t.trainee_id, course.lms_course_id)
