@@ -673,3 +673,31 @@ def test_academics_hub_and_lms_management(client):
     assert r.status_code == 200
     listing = client.get("/lms").get_data(as_text=True)
     assert "Intro to Data" in listing
+
+
+def test_academy_registration_and_access_control(client):
+    import re as _re
+    # trainee area requires a trainee session
+    assert client.get("/academy/my").status_code in (301, 302)
+
+    # admin publishes a paid course
+    login(client, "admin", "admin-pass-1")
+    client.post("/lms/add", data={"title": "Bootcamp", "price": "200",
+                                  "status": "published", "csrf_token": _csrf(client, "/lms")})
+    html = client.get("/lms").get_data(as_text=True)
+    cid = _re.search(r"/lms/(\d+)/edit", html).group(1)
+    client.post("/logout", data={"csrf_token": _csrf(client, "/lms")})
+
+    # public catalog shows it
+    assert "Bootcamp" in client.get("/academy").get_data(as_text=True)
+
+    # self-register -> trainee area now accessible, enroll creates pending payment
+    client.post("/academy/register", data={
+        "full_name": "Sara", "email": "sara@x.com", "password": "secret12",
+        "csrf_token": _csrf(client, "/academy/register")})
+    assert client.get("/academy/my").status_code == 200
+    client.post(f"/academy/courses/{cid}/enroll",
+                data={"csrf_token": _csrf(client, f"/academy/courses/{cid}")})
+    # content stays locked until payment is confirmed
+    page = client.get(f"/academy/courses/{cid}").get_data(as_text=True)
+    assert "unlocks after payment" in page or "يُفتح المحتوى" in page

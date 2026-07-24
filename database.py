@@ -334,6 +334,51 @@ CREATE TABLE IF NOT EXISTS lms_courses (
     teacher_id     INTEGER REFERENCES teachers(teacher_id) ON DELETE SET NULL,
     status         TEXT NOT NULL DEFAULT 'draft'
                    CHECK (status IN ('draft', 'published', 'archived')),
+    price                    REAL NOT NULL DEFAULT 0,
+    delivery_mode            TEXT NOT NULL DEFAULT 'content'
+                             CHECK (delivery_mode IN ('content', 'session', 'hybrid')),
+    require_content          INTEGER NOT NULL DEFAULT 1,   -- completion needs all content done
+    require_attendance_pct   INTEGER NOT NULL DEFAULT 0,   -- 0 = not required, else min %
+    require_quiz_pass        INTEGER NOT NULL DEFAULT 0,   -- 1 = must pass the quiz
+    created_at     TEXT NOT NULL
+);
+
+-- External trainees (distinct from SIS students): self-registered, paid,
+-- access training courses through their own portal.
+CREATE TABLE IF NOT EXISTS trainees (
+    trainee_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    full_name     TEXT NOT NULL,
+    email         TEXT UNIQUE NOT NULL,
+    phone         TEXT,
+    password_hash TEXT NOT NULL,
+    status        TEXT NOT NULL DEFAULT 'active'
+                  CHECK (status IN ('active', 'suspended')),
+    created_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lms_enrollments (
+    lms_enrollment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trainee_id        INTEGER NOT NULL REFERENCES trainees(trainee_id) ON DELETE CASCADE,
+    lms_course_id     INTEGER NOT NULL REFERENCES lms_courses(lms_course_id) ON DELETE CASCADE,
+    amount            REAL NOT NULL DEFAULT 0,
+    payment_status    TEXT NOT NULL DEFAULT 'pending'
+                      CHECK (payment_status IN ('pending', 'paid', 'refunded')),
+    payment_ref       TEXT,
+    completion_status TEXT NOT NULL DEFAULT 'in_progress'
+                      CHECK (completion_status IN ('in_progress', 'completed')),
+    enrolled_at       TEXT NOT NULL,
+    completed_at      TEXT,
+    UNIQUE(trainee_id, lms_course_id)
+);
+
+CREATE TABLE IF NOT EXISTS lms_lessons (
+    lms_lesson_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    lms_course_id  INTEGER NOT NULL REFERENCES lms_courses(lms_course_id) ON DELETE CASCADE,
+    title          TEXT NOT NULL,
+    title_ar       TEXT,
+    body           TEXT,          -- lesson text
+    link           TEXT,          -- optional external/video link
+    sort_order     INTEGER NOT NULL DEFAULT 0,
     created_at     TEXT NOT NULL
 );
 
@@ -351,6 +396,9 @@ CREATE INDEX IF NOT EXISTS idx_exams_section ON exam_schedule(section_id);
 CREATE INDEX IF NOT EXISTS idx_curriculum_major ON curriculum_courses(major_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_section ON attendance(section_id, date);
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at);
+CREATE INDEX IF NOT EXISTS idx_lms_enroll_trainee ON lms_enrollments(trainee_id);
+CREATE INDEX IF NOT EXISTS idx_lms_enroll_course ON lms_enrollments(lms_course_id);
+CREATE INDEX IF NOT EXISTS idx_lms_lessons_course ON lms_lessons(lms_course_id);
 """
 
 # Default admin-controlled settings.
@@ -423,6 +471,11 @@ def _migrate(conn):
         ("users", "full_name", "TEXT"),
         ("service_requests", "section_id", "INTEGER"),
         ("service_requests", "date", "TEXT"),
+        ("lms_courses", "price", "REAL NOT NULL DEFAULT 0"),
+        ("lms_courses", "delivery_mode", "TEXT NOT NULL DEFAULT 'content'"),
+        ("lms_courses", "require_content", "INTEGER NOT NULL DEFAULT 1"),
+        ("lms_courses", "require_attendance_pct", "INTEGER NOT NULL DEFAULT 0"),
+        ("lms_courses", "require_quiz_pass", "INTEGER NOT NULL DEFAULT 0"),
     ]
     for table, column, coltype in additions:
         if not _column_exists(conn, table, column):

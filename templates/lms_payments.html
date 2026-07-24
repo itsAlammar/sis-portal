@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('academy.pending_payments') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('academy.pending_payments') }}</h1></div>
+<div class="card">
+  {% if rows %}
+  <table>
+    <thead><tr><th>{{ t('academy.trainee') }}</th><th>{{ t('common.name') }}</th><th class="num">{{ t('academy.amount') }}</th><th>{{ t('academy.ref') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td>{{ row.trainee.full_name }}<br><span class="muted">{{ row.trainee.email }}</span></td>
+        <td>{{ row.course.name(locale) }}</td>
+        <td class="num">{{ '%.0f'|format(row.enr.amount) }} SAR</td>
+        <td>{{ row.enr.payment_ref or '—' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('lms_payment_approve', lms_enrollment_id=row.enr.lms_enrollment_id) }}" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn--primary btn--small">{{ t('academy.approve_payment') }}</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+</div>
+{% endblock %}

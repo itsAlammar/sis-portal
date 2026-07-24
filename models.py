@@ -413,6 +413,11 @@ class LMSCourse:
     teacher_id: Optional[int]
     status: str
     created_at: str
+    price: float = 0.0
+    delivery_mode: str = "content"
+    require_content: int = 1
+    require_attendance_pct: int = 0
+    require_quiz_pass: int = 0
 
     def name(self, locale="en"):
         if locale == "ar":
@@ -425,4 +430,79 @@ class LMSCourse:
             row["lms_course_id"], _g(row, "code"), row["title"], _g(row, "title_ar"),
             _g(row, "description"), _g(row, "description_ar"), _g(row, "category"),
             _g(row, "teacher_id"), _g(row, "status", "draft"), row["created_at"],
+            _g(row, "price", 0.0), _g(row, "delivery_mode", "content"),
+            _g(row, "require_content", 1), _g(row, "require_attendance_pct", 0),
+            _g(row, "require_quiz_pass", 0),
+        )
+
+
+@dataclass
+class Trainee:
+    trainee_id: int
+    full_name: str
+    email: str
+    phone: Optional[str]
+    password_hash: Optional[str]
+    status: str
+    created_at: str
+
+    @classmethod
+    def from_row(cls, row):
+        return cls(
+            row["trainee_id"], row["full_name"], row["email"], _g(row, "phone"),
+            _g(row, "password_hash"), _g(row, "status", "active"), row["created_at"],
+        )
+
+
+@dataclass
+class LMSEnrollment:
+    lms_enrollment_id: int
+    trainee_id: int
+    lms_course_id: int
+    amount: float
+    payment_status: str
+    payment_ref: Optional[str]
+    completion_status: str
+    enrolled_at: str
+    completed_at: Optional[str]
+
+    @property
+    def is_paid(self) -> bool:
+        return self.payment_status == "paid"
+
+    @property
+    def is_completed(self) -> bool:
+        return self.completion_status == "completed"
+
+    @classmethod
+    def from_row(cls, row):
+        return cls(
+            row["lms_enrollment_id"], row["trainee_id"], row["lms_course_id"],
+            _g(row, "amount", 0.0), _g(row, "payment_status", "pending"),
+            _g(row, "payment_ref"), _g(row, "completion_status", "in_progress"),
+            row["enrolled_at"], _g(row, "completed_at"),
+        )
+
+
+@dataclass
+class LMSLesson:
+    lms_lesson_id: int
+    lms_course_id: int
+    title: str
+    title_ar: Optional[str]
+    body: Optional[str]
+    link: Optional[str]
+    sort_order: int
+    created_at: str
+
+    def name(self, locale="en"):
+        if locale == "ar":
+            return self.title_ar or self.title
+        return self.title
+
+    @classmethod
+    def from_row(cls, row):
+        return cls(
+            row["lms_lesson_id"], row["lms_course_id"], row["title"], _g(row, "title_ar"),
+            _g(row, "body"), _g(row, "link"), _g(row, "sort_order", 0), row["created_at"],
         )

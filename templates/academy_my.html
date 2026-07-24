@@ -1,0 +1,22 @@
+{% extends "academy_layout.html" %}
+{% block title %}{{ t('academy.my_courses') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('academy.my_courses') }}</h1></div>
+<div class="card">
+  {% if enrollments %}
+  <table>
+    <thead><tr><th>{{ t('common.name') }}</th><th>{{ t('academy.payment') }}</th><th>{{ t('common.status') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for row in enrollments %}
+      <tr>
+        <td><a href="{{ url_for('academy_course', lms_course_id=row.course.lms_course_id) }}">{{ row.course.name(locale) }}</a></td>
+        <td><span class="stamp stamp--{{ 'ok' if row.enr.is_paid else 'progress' }}">{{ t('academy.pay_' + row.enr.payment_status) }}</span></td>
+        <td>{{ t('academy.completed_badge') if row.enr.is_completed else t('academy.in_progress') }}</td>
+        <td>{% if row.enr.is_completed %}<a class="btn btn--small" href="{{ url_for('academy_certificate', lms_course_id=row.course.lms_course_id) }}">{{ t('academy.certificate') }}</a>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">{{ t('academy.no_enrollments') }} <a href="{{ url_for('academy_catalog') }}">{{ t('academy.catalog') }}</a></div>{% endif %}
+</div>
+{% endblock %}

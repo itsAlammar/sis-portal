@@ -1,0 +1,50 @@
+{% extends "academy_layout.html" %}
+{% block title %}{{ course.name(locale) }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ course.name(locale) }}</h1></div>
+<div class="grid-2">
+  <div class="card">
+    {% if course.category %}<div class="stamp stamp--default">{{ course.category }}</div>{% endif %}
+    <p>{{ (course.description_ar if locale=='ar' else course.description) or '' }}</p>
+    <div class="stamp">{{ '%.0f'|format(course.price) }} SAR · {{ t('academy.mode_' + course.delivery_mode) }}</div>
+
+    {% if not trainee_user %}
+      <div class="actions-row"><a class="btn btn--primary" href="{{ url_for('academy_login') }}">{{ t('academy.login_to_enroll') }}</a></div>
+    {% elif not enrollment %}
+      <form method="post" action="{{ url_for('academy_enroll', lms_course_id=course.lms_course_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="actions-row"><button class="btn--primary">{{ t('academy.enroll_now') }}</button></div>
+      </form>
+    {% elif not enrollment.is_paid %}
+      <div class="flash flash--info">{{ t('academy.awaiting_payment') }}{% if enrollment.payment_ref %} · {{ enrollment.payment_ref }}{% endif %}</div>
+    {% elif enrollment.is_completed %}
+      <div class="flash flash--success">{{ t('academy.completed_badge') }}</div>
+      <div class="actions-row"><a class="btn btn--primary" href="{{ url_for('academy_certificate', lms_course_id=course.lms_course_id) }}">{{ t('academy.certificate') }}</a></div>
+    {% else %}
+      <form method="post" action="{{ url_for('academy_complete', lms_course_id=course.lms_course_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="actions-row"><button class="btn--primary">{{ t('academy.mark_complete') }}</button></div>
+      </form>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>{{ t('academy.content') }}</h2>
+    {% if enrollment and enrollment.is_paid %}
+      {% if lessons %}
+      <ol>
+        {% for l in lessons %}
+        <li>
+          <strong>{{ l.name(locale) }}</strong>
+          {% if l.body %}<p class="muted">{{ l.body }}</p>{% endif %}
+          {% if l.link %}<p><a href="{{ l.link }}" target="_blank" rel="noopener">{{ t('academy.open_link') }}</a></p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}<div class="empty-state">{{ t('academy.no_content') }}</div>{% endif %}
+    {% else %}
+      <div class="empty-state">{{ t('academy.content_locked') }}</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

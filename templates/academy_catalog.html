@@ -1,0 +1,17 @@
+{% extends "academy_layout.html" %}
+{% block title %}{{ t('academy.catalog') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('academy.catalog') }}</h1></div>
+{% if courses %}
+<div class="grid-3">
+  {% for c in courses %}
+  <a class="card" href="{{ url_for('academy_course', lms_course_id=c.lms_course_id) }}" style="text-decoration:none; color:inherit;">
+    <h2>{{ c.name(locale) }}</h2>
+    {% if c.category %}<div class="stamp stamp--default">{{ c.category }}</div>{% endif %}
+    <p class="muted">{{ (c.description_ar if locale=='ar' else c.description) or '' }}</p>
+    <div class="stamp">{{ '%.0f'|format(c.price) }} SAR{% if c.lms_course_id in enrolled_ids %} · {{ t('academy.enrolled_badge') }}{% endif %}</div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}<div class="empty-state">{{ t('empty.none') }}</div>{% endif %}
+{% endblock %}
