@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block title %}{{ t('att.title') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('att.title') }}: {{ course.name(locale) }} · {{ session.session_date }}</h1></div>
+<div class="card">
+  {% if roster %}
+  <form method="post" action="{{ url_for('lms_session_attendance', lms_session_id=session.lms_session_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <table>
+      <thead><tr><th>{{ t('academy.trainee') }}</th><th>{{ t('common.status') }}</th></tr></thead>
+      <tbody>
+      {% for row in roster %}
+        {% set cur = current.get(row.trainee.trainee_id, 'present') %}
+        <tr>
+          <td>{{ row.trainee.full_name }}<br><span class="muted">{{ row.trainee.email }}</span></td>
+          <td><select name="att_{{ row.trainee.trainee_id }}">
+            {% for s in ['present', 'absent', 'late', 'excused'] %}<option value="{{ s }}" {{ 'selected' if cur == s }}>{{ t('att.' + s) }}</option>{% endfor %}
+          </select></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="actions-row"><button class="btn--primary">{{ t('action.save') }}</button> <a class="btn btn--ghost" href="{{ url_for('lms_edit', lms_course_id=course.lms_course_id) }}">{{ t('action.back') }}</a></div>
+  </form>
+  {% else %}<div class="empty-state">{{ t('academy.no_paid_trainees') }}</div>{% endif %}
+</div>
+{% endblock %}

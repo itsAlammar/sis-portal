@@ -29,6 +29,22 @@
   </div>
 
   <div class="card">
+    {% if enrollment and enrollment.is_paid and sessions %}
+    <h2>{{ t('academy.sessions') }}</h2>
+    <table>
+      <thead><tr><th>{{ t('academy.session_date') }}</th><th>{{ t('academy.session_time') }}</th><th>{{ t('exam.room') }}</th></tr></thead>
+      <tbody>
+      {% for s in sessions %}
+        <tr>
+          <td>{{ s.session_date }}{% if s.title %} · {{ s.title }}{% endif %}</td>
+          <td>{{ s.start_time or '—' }}{% if s.end_time %}–{{ s.end_time }}{% endif %}</td>
+          <td>{% if s.link %}<a href="{{ s.link }}" target="_blank" rel="noopener">{{ t('academy.join') }}</a>{% else %}{{ s.room or '—' }}{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <hr>
+    {% endif %}
     <h2>{{ t('academy.content') }}</h2>
     {% if enrollment and enrollment.is_paid %}
       {% if lessons %}

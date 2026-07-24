@@ -10,7 +10,9 @@ from datetime import datetime
 from typing import List, Optional
 
 from exceptions import DuplicateError, NotFoundError, ValidationError
-from models import LMSCourse, LMSLesson
+from models import LMSCourse, LMSLesson, LMSSession
+
+ATTENDANCE_STATUSES = ("present", "absent", "late", "excused")
 
 STATUSES = ("draft", "published", "archived")
 DELIVERY_MODES = ("content", "session", "hybrid")
@@ -155,3 +157,81 @@ class LMSService:
         self.get_lesson(lms_lesson_id)
         self.conn.execute("DELETE FROM lms_lessons WHERE lms_lesson_id = ?", (lms_lesson_id,))
         self.conn.commit()
+
+    # -- sessions (scheduled meetings) + attendance ------------------------
+    def add_session(self, lms_course_id: int, session_date: str, title: str = "",
+                    start_time: str = "", end_time: str = "", room: str = "",
+                    link: str = "") -> LMSSession:
+        self.get_course(lms_course_id)
+        if not session_date.strip():
+            raise ValidationError("Session date is required.")
+        cur = self.conn.execute(
+            """INSERT INTO lms_sessions (lms_course_id, title, session_date, start_time,
+                    end_time, room, link, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (lms_course_id, title.strip() or None, session_date.strip(),
+             start_time.strip() or None, end_time.strip() or None,
+             room.strip() or None, link.strip() or None,
+             datetime.now().isoformat(timespec="seconds")),
+        )
+        self.conn.commit()
+        return self.get_session(cur.lastrowid)
+
+    def get_session(self, lms_session_id: int) -> LMSSession:
+        row = self.conn.execute(
+            "SELECT * FROM lms_sessions WHERE lms_session_id = ?", (lms_session_id,)
+        ).fetchone()
+        if row is None:
+            raise NotFoundError(f"No session with id {lms_session_id}.")
+        return LMSSession.from_row(row)
+
+    def list_sessions(self, lms_course_id: int) -> List[LMSSession]:
+        rows = self.conn.execute(
+            "SELECT * FROM lms_sessions WHERE lms_course_id = ? "
+            "ORDER BY session_date, start_time, lms_session_id",
+            (lms_course_id,),
+        ).fetchall()
+        return [LMSSession.from_row(r) for r in rows]
+
+    def delete_session(self, lms_session_id: int) -> None:
+        self.get_session(lms_session_id)
+        self.conn.execute("DELETE FROM lms_sessions WHERE lms_session_id = ?", (lms_session_id,))
+        self.conn.commit()
+
+    def record_attendance(self, lms_session_id: int, marks: dict) -> None:
+        """Upsert attendance for a session: {trainee_id: status}."""
+        self.get_session(lms_session_id)
+        for trainee_id, status in marks.items():
+            if status not in ATTENDANCE_STATUSES:
+                raise ValidationError(f"Invalid attendance status: {status}.")
+            self.conn.execute(
+                """INSERT INTO lms_session_attendance (lms_session_id, trainee_id, status)
+                   VALUES (?, ?, ?)
+                   ON CONFLICT(lms_session_id, trainee_id) DO UPDATE SET status = excluded.status""",
+                (lms_session_id, int(trainee_id), status),
+            )
+        self.conn.commit()
+
+    def get_attendance(self, lms_session_id: int) -> dict:
+        rows = self.conn.execute(
+            "SELECT trainee_id, status FROM lms_session_attendance WHERE lms_session_id = ?",
+            (lms_session_id,),
+        ).fetchall()
+        return {r["trainee_id"]: r["status"] for r in rows}
+
+    def attendance_pct(self, lms_course_id: int, trainee_id: int) -> int:
+        """Percentage of the course's sessions the trainee attended
+        (present or late count as attended). 100 when there are no sessions."""
+        total = self.conn.execute(
+            "SELECT COUNT(*) AS c FROM lms_sessions WHERE lms_course_id = ?", (lms_course_id,)
+        ).fetchone()["c"]
+        if total == 0:
+            return 100
+        attended = self.conn.execute(
+            """SELECT COUNT(*) AS c FROM lms_session_attendance a
+               JOIN lms_sessions s ON s.lms_session_id = a.lms_session_id
+               WHERE s.lms_course_id = ? AND a.trainee_id = ?
+                 AND a.status IN ('present', 'late')""",
+            (lms_course_id, trainee_id),
+        ).fetchone()["c"]
+        return round(attended * 100 / total)

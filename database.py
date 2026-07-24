@@ -382,6 +382,26 @@ CREATE TABLE IF NOT EXISTS lms_lessons (
     created_at     TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS lms_sessions (
+    lms_session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lms_course_id  INTEGER NOT NULL REFERENCES lms_courses(lms_course_id) ON DELETE CASCADE,
+    title          TEXT,
+    session_date   TEXT NOT NULL,
+    start_time     TEXT,
+    end_time       TEXT,
+    room           TEXT,
+    link           TEXT,          -- online meeting link
+    created_at     TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lms_session_attendance (
+    lms_session_id INTEGER NOT NULL REFERENCES lms_sessions(lms_session_id) ON DELETE CASCADE,
+    trainee_id     INTEGER NOT NULL REFERENCES trainees(trainee_id) ON DELETE CASCADE,
+    status         TEXT NOT NULL DEFAULT 'present'
+                   CHECK (status IN ('present', 'absent', 'late', 'excused')),
+    PRIMARY KEY (lms_session_id, trainee_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_section ON enrollments(section_id);
 CREATE INDEX IF NOT EXISTS idx_sections_course ON sections(course_id);
@@ -399,6 +419,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at);
 CREATE INDEX IF NOT EXISTS idx_lms_enroll_trainee ON lms_enrollments(trainee_id);
 CREATE INDEX IF NOT EXISTS idx_lms_enroll_course ON lms_enrollments(lms_course_id);
 CREATE INDEX IF NOT EXISTS idx_lms_lessons_course ON lms_lessons(lms_course_id);
+CREATE INDEX IF NOT EXISTS idx_lms_sessions_course ON lms_sessions(lms_course_id);
+CREATE INDEX IF NOT EXISTS idx_lms_session_att ON lms_session_attendance(lms_session_id);
 """
 
 # Default admin-controlled settings.

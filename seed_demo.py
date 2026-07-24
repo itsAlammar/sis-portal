@@ -58,6 +58,11 @@ def _seed_lms_courses(conn):
                    body="Install Python and set up your editor.")
     lms.add_lesson(py.lms_course_id, title="Variables & types", title_ar="المتغيرات والأنواع",
                    body="Numbers, strings, and lists.")
+    # Scheduled sessions for the hybrid paid course.
+    lms.add_session(py.lms_course_id, session_date="2026-03-01", title="Kickoff",
+                    start_time="10:00", end_time="12:00", room="Lab A-1")
+    lms.add_session(py.lms_course_id, session_date="2026-03-08", title="Workshop",
+                    start_time="10:00", end_time="12:00", link="https://meet.example.com/py")
 
     # A demo external trainee already enrolled (and paid) in the paid course,
     # plus one pending payment awaiting confirmation on another course.

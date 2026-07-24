@@ -1692,6 +1692,7 @@ def lms_edit(lms_course_id):
             flash(str(e), "error")
     return render_template("lms_form.html", course=course, teachers=_lms_teachers(conn),
                            lessons=lms.list_lessons(lms_course_id),
+                           sessions=lms.list_sessions(lms_course_id),
                            enrollments=LMSEnrollmentService(conn).list_for_course(lms_course_id))
 
 
@@ -1733,6 +1734,60 @@ def lms_lesson_delete(lms_lesson_id):
     audit("lms_lesson.delete", "lms_course", lesson.lms_course_id, lesson.title)
     flash(i18n.t("flash.deleted", locale()), "success")
     return redirect(url_for("lms_edit", lms_course_id=lesson.lms_course_id))
+
+
+@app.route("/lms/<int:lms_course_id>/sessions/add", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_session_add(lms_course_id):
+    f = request.form
+    try:
+        LMSService(get_db()).add_session(
+            lms_course_id, session_date=f.get("session_date", ""),
+            title=f.get("title", ""), start_time=f.get("start_time", ""),
+            end_time=f.get("end_time", ""), room=f.get("room", ""), link=f.get("link", ""),
+        )
+        audit("lms_session.create", "lms_course", lms_course_id, f.get("session_date", ""))
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("lms_edit", lms_course_id=lms_course_id))
+
+
+@app.route("/lms/sessions/<int:lms_session_id>/delete", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_session_delete(lms_session_id):
+    conn = get_db()
+    lms = LMSService(conn)
+    ses = lms.get_session(lms_session_id)
+    lms.delete_session(lms_session_id)
+    audit("lms_session.delete", "lms_course", ses.lms_course_id, ses.session_date)
+    flash(i18n.t("flash.deleted", locale()), "success")
+    return redirect(url_for("lms_edit", lms_course_id=ses.lms_course_id))
+
+
+@app.route("/lms/sessions/<int:lms_session_id>/attendance", methods=["GET", "POST"])
+@staff_required("admin", "registrar")
+def lms_session_attendance(lms_session_id):
+    conn = get_db()
+    lms = LMSService(conn)
+    ses = lms.get_session(lms_session_id)
+    enr = LMSEnrollmentService(conn)
+    trainees_svc = TraineeService(conn)
+    roster = [{"trainee": trainees_svc.get_trainee(e.trainee_id), "enr": e}
+              for e in enr.list_for_course(ses.lms_course_id) if e.is_paid]
+    if request.method == "POST":
+        marks = {row["trainee"].trainee_id: request.form.get(f"att_{row['trainee'].trainee_id}", "present")
+                 for row in roster}
+        try:
+            lms.record_attendance(lms_session_id, marks)
+            audit("lms_attendance.record", "lms_session", lms_session_id)
+            flash(i18n.t("flash.saved", locale()), "success")
+            return redirect(url_for("lms_edit", lms_course_id=ses.lms_course_id))
+        except SISError as e:
+            flash(str(e), "error")
+    return render_template("lms_attendance.html", session=ses, roster=roster,
+                           current=lms.get_attendance(lms_session_id),
+                           course=lms.get_course(ses.lms_course_id))
 
 
 @app.route("/lms/payments")
@@ -1834,8 +1889,11 @@ def academy_course(lms_course_id):
     enr = None
     if session.get("trainee_id"):
         enr = LMSEnrollmentService(conn).get_for(session["trainee_id"], lms_course_id)
-    lessons = LMSService(conn).list_lessons(lms_course_id) if (enr and enr.is_paid) else []
-    return render_template("academy_course.html", course=course, enrollment=enr, lessons=lessons)
+    paid = enr and enr.is_paid
+    lessons = LMSService(conn).list_lessons(lms_course_id) if paid else []
+    sessions = LMSService(conn).list_sessions(lms_course_id) if paid else []
+    return render_template("academy_course.html", course=course, enrollment=enr,
+                           lessons=lessons, sessions=sessions)
 
 
 @app.route("/academy/courses/<int:lms_course_id>/enroll", methods=["POST"])

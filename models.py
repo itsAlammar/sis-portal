@@ -485,6 +485,27 @@ class LMSEnrollment:
 
 
 @dataclass
+class LMSSession:
+    lms_session_id: int
+    lms_course_id: int
+    title: Optional[str]
+    session_date: str
+    start_time: Optional[str]
+    end_time: Optional[str]
+    room: Optional[str]
+    link: Optional[str]
+    created_at: str
+
+    @classmethod
+    def from_row(cls, row):
+        return cls(
+            row["lms_session_id"], row["lms_course_id"], _g(row, "title"),
+            row["session_date"], _g(row, "start_time"), _g(row, "end_time"),
+            _g(row, "room"), _g(row, "link"), row["created_at"],
+        )
+
+
+@dataclass
 class LMSLesson:
     lms_lesson_id: int
     lms_course_id: int

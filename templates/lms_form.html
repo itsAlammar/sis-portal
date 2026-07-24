@@ -32,6 +32,45 @@
   </form>
 </div>
 
+<div class="card">
+  <h2>{{ t('academy.sessions') }}</h2>
+  {% if sessions %}
+  <table>
+    <thead><tr><th>{{ t('academy.session_date') }}</th><th>{{ t('academy.session_time') }}</th><th>{{ t('exam.room') }}</th><th>{{ t('common.actions') }}</th></tr></thead>
+    <tbody>
+    {% for s in sessions %}
+      <tr>
+        <td>{{ s.session_date }}{% if s.title %} · {{ s.title }}{% endif %}</td>
+        <td>{{ s.start_time or '—' }}{% if s.end_time %}–{{ s.end_time }}{% endif %}</td>
+        <td>{{ s.room or (s.link and t('academy.online')) or '—' }}</td>
+        <td>
+          <a class="btn btn--small" href="{{ url_for('lms_session_attendance', lms_session_id=s.lms_session_id) }}">{{ t('att.title') }}</a>
+          <form method="post" action="{{ url_for('lms_session_delete', lms_session_id=s.lms_session_id) }}" style="display:inline; margin:0;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">{{ t('action.delete') }}</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">{{ t('academy.no_sessions') }}</div>{% endif %}
+  <h3>{{ t('action.add') }}</h3>
+  <form method="post" action="{{ url_for('lms_session_add', lms_course_id=course.lms_course_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid-2">
+      <div><label>{{ t('academy.session_date') }}</label><input name="session_date" type="date" required></div>
+      <div><label>{{ t('lms.title') }}</label><input name="title"></div>
+    </div>
+    <div class="grid-2">
+      <div><label>{{ t('exam.start') }}</label><input name="start_time" type="time"></div>
+      <div><label>{{ t('exam.end') }}</label><input name="end_time" type="time"></div>
+    </div>
+    <div class="grid-2">
+      <div><label>{{ t('exam.room') }}</label><input name="room"></div>
+      <div><label>{{ t('academy.online_link') }}</label><input name="link" type="url"></div>
+    </div>
+    <div class="actions-row"><button class="btn--primary btn--small">{{ t('action.add') }}</button></div>
+  </form>
+</div>
+
 <div class="grid-2">
   <div class="card">
     <h2>{{ t('academy.content') }}</h2>

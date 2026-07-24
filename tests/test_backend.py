@@ -746,3 +746,27 @@ def test_cannot_enroll_in_unpublished_course(conn):
     t = TraineeService(conn).register(full_name="A", email="a@b.com", password="secret12")
     with pytest.raises(ValidationError):
         LMSEnrollmentService(conn).enroll(t.trainee_id, course.lms_course_id)
+
+
+def test_training_sessions_and_attendance(conn):
+    from lms_service import LMSService
+    from trainee_service import TraineeService
+    from lms_enrollment_service import LMSEnrollmentService
+    lms = LMSService(conn)
+    course = lms.add_course(title="Hybrid", price=100, delivery_mode="hybrid", status="published")
+    s1 = lms.add_session(course.lms_course_id, session_date="2026-03-01", start_time="10:00", room="A1")
+    s2 = lms.add_session(course.lms_course_id, session_date="2026-03-08")
+    assert len(lms.list_sessions(course.lms_course_id)) == 2
+
+    t = TraineeService(conn).register(full_name="X", email="x@y.com", password="secret12")
+    e = LMSEnrollmentService(conn).enroll(t.trainee_id, course.lms_course_id)
+    LMSEnrollmentService(conn).mark_paid(e.lms_enrollment_id)
+
+    lms.record_attendance(s1.lms_session_id, {t.trainee_id: "present"})
+    lms.record_attendance(s2.lms_session_id, {t.trainee_id: "absent"})
+    assert lms.attendance_pct(course.lms_course_id, t.trainee_id) == 50
+    # upsert: absent -> late (counts as attended) => 100%
+    lms.record_attendance(s2.lms_session_id, {t.trainee_id: "late"})
+    assert lms.attendance_pct(course.lms_course_id, t.trainee_id) == 100
+    with pytest.raises(ValidationError):
+        lms.record_attendance(s1.lms_session_id, {t.trainee_id: "bogus"})
