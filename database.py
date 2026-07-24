@@ -402,6 +402,36 @@ CREATE TABLE IF NOT EXISTS lms_session_attendance (
     PRIMARY KEY (lms_session_id, trainee_id)
 );
 
+CREATE TABLE IF NOT EXISTS lms_quizzes (
+    lms_quiz_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    lms_course_id INTEGER NOT NULL REFERENCES lms_courses(lms_course_id) ON DELETE CASCADE,
+    title         TEXT,
+    pass_percent  INTEGER NOT NULL DEFAULT 60,
+    created_at    TEXT NOT NULL,
+    UNIQUE(lms_course_id)          -- one quiz per course (MVP)
+);
+
+CREATE TABLE IF NOT EXISTS lms_questions (
+    lms_question_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lms_quiz_id     INTEGER NOT NULL REFERENCES lms_quizzes(lms_quiz_id) ON DELETE CASCADE,
+    prompt          TEXT NOT NULL,
+    option_a        TEXT NOT NULL,
+    option_b        TEXT NOT NULL,
+    option_c        TEXT,
+    option_d        TEXT,
+    correct_option  TEXT NOT NULL CHECK (correct_option IN ('a', 'b', 'c', 'd')),
+    sort_order      INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS lms_attempts (
+    lms_quiz_id   INTEGER NOT NULL REFERENCES lms_quizzes(lms_quiz_id) ON DELETE CASCADE,
+    trainee_id    INTEGER NOT NULL REFERENCES trainees(trainee_id) ON DELETE CASCADE,
+    score_percent INTEGER NOT NULL,
+    passed        INTEGER NOT NULL DEFAULT 0,
+    attempted_at  TEXT NOT NULL,
+    PRIMARY KEY (lms_quiz_id, trainee_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_section ON enrollments(section_id);
 CREATE INDEX IF NOT EXISTS idx_sections_course ON sections(course_id);
@@ -421,6 +451,7 @@ CREATE INDEX IF NOT EXISTS idx_lms_enroll_course ON lms_enrollments(lms_course_i
 CREATE INDEX IF NOT EXISTS idx_lms_lessons_course ON lms_lessons(lms_course_id);
 CREATE INDEX IF NOT EXISTS idx_lms_sessions_course ON lms_sessions(lms_course_id);
 CREATE INDEX IF NOT EXISTS idx_lms_session_att ON lms_session_attendance(lms_session_id);
+CREATE INDEX IF NOT EXISTS idx_lms_questions_quiz ON lms_questions(lms_quiz_id);
 """
 
 # Default admin-controlled settings.

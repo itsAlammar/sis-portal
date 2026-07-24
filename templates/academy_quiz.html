@@ -1,0 +1,33 @@
+{% extends "academy_layout.html" %}
+{% block title %}{{ t('academy.quiz') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ course.name(locale) }} — {{ quiz.title or t('academy.quiz') }}</h1></div>
+<div class="card">
+  <p class="muted">{{ t('academy.pass_percent') }}: {{ quiz.pass_percent }}%</p>
+  {% if attempt %}
+    <div class="flash flash--{{ 'success' if attempt.passed else 'error' }}">
+      {{ t('academy.your_score') }}: {{ attempt.score_percent }}% —
+      {{ t('academy.passed') if attempt.passed else t('academy.not_passed') }}
+    </div>
+  {% endif %}
+
+  {% if attempt and attempt.passed %}
+    <div class="actions-row"><a class="btn btn--primary" href="{{ url_for('academy_course', lms_course_id=course.lms_course_id) }}">{{ t('action.back') }}</a></div>
+  {% elif not questions %}
+    <div class="empty-state">{{ t('academy.no_questions') }}</div>
+  {% else %}
+    <form method="post" action="{{ url_for('academy_quiz', lms_course_id=course.lms_course_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for q in questions %}
+      <div class="card">
+        <strong>{{ loop.index }}. {{ q.prompt }}</strong>
+        {% for letter, text in q.options() %}
+        <label style="display:block;"><input type="radio" name="q_{{ q.lms_question_id }}" value="{{ letter }}" required> {{ letter|upper }}. {{ text }}</label>
+        {% endfor %}
+      </div>
+      {% endfor %}
+      <div class="actions-row"><button class="btn--primary">{{ t('academy.submit_quiz') }}</button></div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

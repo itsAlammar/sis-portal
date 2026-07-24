@@ -770,3 +770,46 @@ def test_training_sessions_and_attendance(conn):
     assert lms.attendance_pct(course.lms_course_id, t.trainee_id) == 100
     with pytest.raises(ValidationError):
         lms.record_attendance(s1.lms_session_id, {t.trainee_id: "bogus"})
+
+
+def test_training_quiz_autograde_and_completion_gate(conn):
+    from lms_service import LMSService
+    from trainee_service import TraineeService
+    from lms_quiz_service import LMSQuizService
+    lms = LMSService(conn)
+    course = lms.add_course(title="Quizzed", price=0, status="published",
+                            require_quiz_pass=1)
+    qz = LMSQuizService(conn)
+    quiz = qz.get_or_create_quiz(course.lms_course_id, pass_percent=50)
+    q1 = qz.add_question(quiz.lms_quiz_id, "2+2?", "3", "4", correct_option="b")
+    q2 = qz.add_question(quiz.lms_quiz_id, "Sky color?", "Blue", "Green", correct_option="a")
+
+    t = TraineeService(conn).register(full_name="Q", email="q@z.com", password="secret12")
+    assert qz.has_passed(course.lms_course_id, t.trainee_id) is False
+
+    # fail: one right of two -> 50%? correct=1/2=50 which is >=50 -> passes; make it 0 right
+    fail = qz.submit_attempt(quiz.lms_quiz_id, t.trainee_id, {q1.lms_question_id: "a", q2.lms_question_id: "b"})
+    assert fail.score_percent == 0 and not fail.passed
+    assert qz.has_passed(course.lms_course_id, t.trainee_id) is False
+
+    # retake and pass
+    ok = qz.submit_attempt(quiz.lms_quiz_id, t.trainee_id, {q1.lms_question_id: "b", q2.lms_question_id: "a"})
+    assert ok.score_percent == 100 and ok.passed
+    assert qz.has_passed(course.lms_course_id, t.trainee_id) is True
+
+    # cannot retake once passed
+    with pytest.raises(ValidationError):
+        qz.submit_attempt(quiz.lms_quiz_id, t.trainee_id, {q1.lms_question_id: "a"})
+
+    # invalid correct option rejected
+    with pytest.raises(ValidationError):
+        qz.add_question(quiz.lms_quiz_id, "?", "x", "y", correct_option="c")  # c is empty
+
+
+def test_course_without_quiz_counts_as_passed(conn):
+    from lms_service import LMSService
+    from trainee_service import TraineeService
+    from lms_quiz_service import LMSQuizService
+    course = LMSService(conn).add_course(title="No quiz", price=0, status="published")
+    t = TraineeService(conn).register(full_name="N", email="n@z.com", password="secret12")
+    assert LMSQuizService(conn).has_passed(course.lms_course_id, t.trainee_id) is True

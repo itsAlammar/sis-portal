@@ -29,6 +29,12 @@
   </div>
 
   <div class="card">
+    {% if enrollment and enrollment.is_paid and quiz %}
+    <h2>{{ t('academy.quiz') }}</h2>
+    {% if attempt %}<p class="muted">{{ t('academy.your_score') }}: {{ attempt.score_percent }}% · {{ t('academy.passed') if attempt.passed else t('academy.not_passed') }}</p>{% endif %}
+    <div class="actions-row"><a class="btn btn--primary btn--small" href="{{ url_for('academy_quiz', lms_course_id=course.lms_course_id) }}">{{ t('academy.view_quiz') if (attempt and attempt.passed) else t('academy.take_quiz') }}</a></div>
+    <hr>
+    {% endif %}
     {% if enrollment and enrollment.is_paid and sessions %}
     <h2>{{ t('academy.sessions') }}</h2>
     <table>

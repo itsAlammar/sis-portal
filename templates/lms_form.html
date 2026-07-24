@@ -72,6 +72,44 @@
   </form>
 </div>
 
+<div class="card">
+  <h2>{{ t('academy.quiz') }}</h2>
+  <form method="post" action="{{ url_for('lms_quiz_settings', lms_course_id=course.lms_course_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid-2">
+      <div><label>{{ t('academy.quiz_title') }}</label><input name="quiz_title" value="{{ quiz.title if quiz else '' }}"></div>
+      <div><label>{{ t('academy.pass_percent') }} (%)</label><input type="number" name="pass_percent" min="0" max="100" value="{{ quiz.pass_percent if quiz else 60 }}"></div>
+    </div>
+    <div class="actions-row"><button class="btn--primary btn--small">{{ t('action.save') }}</button></div>
+  </form>
+  {% if questions %}
+  <table>
+    <thead><tr><th>{{ t('academy.question') }}</th><th>{{ t('academy.correct') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for q in questions %}
+      <tr><td>{{ q.prompt }}</td><td>{{ q.correct_option|upper }}</td>
+        <td><form method="post" action="{{ url_for('lms_question_delete', lms_question_id=q.lms_question_id) }}" style="margin:0;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn--ghost btn--small">{{ t('action.delete') }}</button></form></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty-state">{{ t('academy.no_questions') }}</div>{% endif %}
+  <h3>{{ t('academy.add_question') }}</h3>
+  <form method="post" action="{{ url_for('lms_question_add', lms_course_id=course.lms_course_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>{{ t('academy.question') }}</label><input name="prompt" required>
+    <div class="grid-2">
+      <div><label>A</label><input name="option_a" required></div>
+      <div><label>B</label><input name="option_b" required></div>
+      <div><label>C</label><input name="option_c"></div>
+      <div><label>D</label><input name="option_d"></div>
+    </div>
+    <label>{{ t('academy.correct') }}</label>
+    <select name="correct_option">{% for o in ['a', 'b', 'c', 'd'] %}<option value="{{ o }}">{{ o|upper }}</option>{% endfor %}</select>
+    <div class="actions-row"><button class="btn--primary btn--small">{{ t('academy.add_question') }}</button></div>
+  </form>
+</div>
+
 <div class="grid-2">
   <div class="card">
     <h2>{{ t('academy.content') }}</h2>

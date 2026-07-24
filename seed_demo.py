@@ -83,6 +83,16 @@ def _seed_lms_courses(conn):
         ("Citations & references", "التوثيق والمراجع", "APA basics and in-text citations."),
     ])
 
+    # A short auto-graded quiz on the flagship course.
+    from lms_quiz_service import LMSQuizService
+    qz = LMSQuizService(conn)
+    if not qz.get_quiz_for_course(py.lms_course_id):
+        quiz = qz.get_or_create_quiz(py.lms_course_id, title="Python basics", pass_percent=50)
+        qz.add_question(quiz.lms_quiz_id, "Which keyword defines a function in Python?",
+                        "func", "def", correct_option="b", option_c="function")
+        qz.add_question(quiz.lms_quiz_id, "What does len() return for a list?",
+                        "The largest item", "The number of items", correct_option="b")
+
     # Trainees + enrollments (only if none yet): one paid+attended, one pending.
     tr, enr = TraineeService(conn), LMSEnrollmentService(conn)
     if tr.count() == 0:

@@ -485,6 +485,61 @@ class LMSEnrollment:
 
 
 @dataclass
+class LMSQuiz:
+    lms_quiz_id: int
+    lms_course_id: int
+    title: Optional[str]
+    pass_percent: int
+    created_at: str
+
+    @classmethod
+    def from_row(cls, row):
+        return cls(row["lms_quiz_id"], row["lms_course_id"], _g(row, "title"),
+                   _g(row, "pass_percent", 60), row["created_at"])
+
+
+@dataclass
+class LMSQuestion:
+    lms_question_id: int
+    lms_quiz_id: int
+    prompt: str
+    option_a: str
+    option_b: str
+    option_c: Optional[str]
+    option_d: Optional[str]
+    correct_option: str
+    sort_order: int
+
+    def options(self):
+        """Yield (letter, text) for the non-empty options."""
+        pairs = [("a", self.option_a), ("b", self.option_b),
+                 ("c", self.option_c), ("d", self.option_d)]
+        return [(k, v) for k, v in pairs if v]
+
+    @classmethod
+    def from_row(cls, row):
+        return cls(
+            row["lms_question_id"], row["lms_quiz_id"], row["prompt"],
+            row["option_a"], row["option_b"], _g(row, "option_c"), _g(row, "option_d"),
+            row["correct_option"], _g(row, "sort_order", 0),
+        )
+
+
+@dataclass
+class LMSAttempt:
+    lms_quiz_id: int
+    trainee_id: int
+    score_percent: int
+    passed: int
+    attempted_at: str
+
+    @classmethod
+    def from_row(cls, row):
+        return cls(row["lms_quiz_id"], row["trainee_id"], row["score_percent"],
+                   _g(row, "passed", 0), row["attempted_at"])
+
+
+@dataclass
 class LMSSession:
     lms_session_id: int
     lms_course_id: int

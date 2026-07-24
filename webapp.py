@@ -46,6 +46,7 @@ from exam_service import ExamService
 from lms_service import LMSService
 from trainee_service import TraineeService
 from lms_enrollment_service import LMSEnrollmentService
+from lms_quiz_service import LMSQuizService
 import pdf_reports
 
 app = Flask(__name__)
@@ -1690,9 +1691,12 @@ def lms_edit(lms_course_id):
             return redirect(url_for("lms_edit", lms_course_id=lms_course_id))
         except SISError as e:
             flash(str(e), "error")
+    quiz = LMSQuizService(conn).get_quiz_for_course(lms_course_id)
+    questions = LMSQuizService(conn).list_questions(quiz.lms_quiz_id) if quiz else []
     return render_template("lms_form.html", course=course, teachers=_lms_teachers(conn),
                            lessons=lms.list_lessons(lms_course_id),
                            sessions=lms.list_sessions(lms_course_id),
+                           quiz=quiz, questions=questions,
                            enrollments=LMSEnrollmentService(conn).list_for_course(lms_course_id))
 
 
@@ -1788,6 +1792,53 @@ def lms_session_attendance(lms_session_id):
     return render_template("lms_attendance.html", session=ses, roster=roster,
                            current=lms.get_attendance(lms_session_id),
                            course=lms.get_course(ses.lms_course_id))
+
+
+@app.route("/lms/<int:lms_course_id>/quiz", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_quiz_settings(lms_course_id):
+    f = request.form
+    try:
+        LMSQuizService(get_db()).set_pass_percent(
+            lms_course_id, pass_percent=int(f.get("pass_percent") or 60),
+            title=f.get("quiz_title", ""))
+        audit("lms_quiz.settings", "lms_course", lms_course_id)
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("lms_edit", lms_course_id=lms_course_id))
+
+
+@app.route("/lms/<int:lms_course_id>/quiz/questions/add", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_question_add(lms_course_id):
+    conn = get_db()
+    f = request.form
+    try:
+        quiz = LMSQuizService(conn).get_or_create_quiz(lms_course_id)
+        LMSQuizService(conn).add_question(
+            quiz.lms_quiz_id, prompt=f.get("prompt", ""),
+            option_a=f.get("option_a", ""), option_b=f.get("option_b", ""),
+            option_c=f.get("option_c", ""), option_d=f.get("option_d", ""),
+            correct_option=f.get("correct_option", ""))
+        audit("lms_question.create", "lms_course", lms_course_id)
+        flash(i18n.t("flash.saved", locale()), "success")
+    except SISError as e:
+        flash(str(e), "error")
+    return redirect(url_for("lms_edit", lms_course_id=lms_course_id))
+
+
+@app.route("/lms/questions/<int:lms_question_id>/delete", methods=["POST"])
+@staff_required("admin", "registrar")
+def lms_question_delete(lms_question_id):
+    conn = get_db()
+    qz = LMSQuizService(conn)
+    question = qz.get_question(lms_question_id)
+    course_id = qz.get_quiz(question.lms_quiz_id).lms_course_id
+    qz.delete_question(lms_question_id)
+    audit("lms_question.delete", "lms_course", course_id)
+    flash(i18n.t("flash.deleted", locale()), "success")
+    return redirect(url_for("lms_edit", lms_course_id=course_id))
 
 
 @app.route("/lms/payments")
@@ -1892,8 +1943,11 @@ def academy_course(lms_course_id):
     paid = enr and enr.is_paid
     lessons = LMSService(conn).list_lessons(lms_course_id) if paid else []
     sessions = LMSService(conn).list_sessions(lms_course_id) if paid else []
+    qz = LMSQuizService(conn)
+    quiz = qz.get_quiz_for_course(lms_course_id) if paid else None
+    attempt = qz.get_attempt(quiz.lms_quiz_id, enr.trainee_id) if (paid and quiz) else None
     return render_template("academy_course.html", course=course, enrollment=enr,
-                           lessons=lessons, sessions=sessions)
+                           lessons=lessons, sessions=sessions, quiz=quiz, attempt=attempt)
 
 
 @app.route("/academy/courses/<int:lms_course_id>/enroll", methods=["POST"])
@@ -1926,6 +1980,35 @@ def academy_complete(lms_course_id):
     except SISError as e:
         flash(str(e), "error")
     return redirect(url_for("academy_course", lms_course_id=lms_course_id))
+
+
+@app.route("/academy/courses/<int:lms_course_id>/quiz", methods=["GET", "POST"])
+@trainee_login_required
+def academy_quiz(lms_course_id):
+    conn = get_db()
+    tid = session["trainee_id"]
+    enr = LMSEnrollmentService(conn).get_for(tid, lms_course_id)
+    if not enr or not enr.is_paid:
+        abort(404)
+    qz = LMSQuizService(conn)
+    quiz = qz.get_quiz_for_course(lms_course_id)
+    if not quiz:
+        abort(404)
+    questions = qz.list_questions(quiz.lms_quiz_id)
+    if request.method == "POST":
+        answers = {q.lms_question_id: request.form.get(f"q_{q.lms_question_id}") for q in questions}
+        try:
+            attempt = qz.submit_attempt(quiz.lms_quiz_id, tid, answers)
+            audit("academy.quiz_attempt", "lms_quiz", quiz.lms_quiz_id, str(attempt.score_percent))
+            flash(i18n.t("academy.quiz_passed", locale()) if attempt.passed
+                  else i18n.t("academy.quiz_failed", locale(), score=attempt.score_percent),
+                  "success" if attempt.passed else "error")
+            return redirect(url_for("academy_course", lms_course_id=lms_course_id))
+        except SISError as e:
+            flash(str(e), "error")
+    return render_template("academy_quiz.html", course=LMSService(conn).get_course(lms_course_id),
+                           quiz=quiz, questions=questions,
+                           attempt=qz.get_attempt(quiz.lms_quiz_id, tid))
 
 
 @app.route("/academy/courses/<int:lms_course_id>/certificate")
